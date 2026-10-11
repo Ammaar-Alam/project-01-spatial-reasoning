@@ -332,6 +332,27 @@ test("keeps a copy of every task file and image a run used", async () => {
   assert.equal(copied.find((task) => task.id === "stack/one")?.prompt, solvable.prompt);
 });
 
+test("stops before sending anything if a task changes while the run is starting", async () => {
+  const setup = await fixture();
+  // edited on disk after the tasks were loaded but before they are copied
+  const file = path.join(path.dirname(setup.dir), "..", "tasks", "stack/one.json");
+  await writeFile(file, JSON.stringify({ ...solvable, reference: unsolvable.reference }));
+  const { call, calls } = fakeModels();
+  await assert.rejects(run(setup, call), /stack\/one changed while the run was starting/);
+  assert.equal(calls.length, 0);
+  assert.equal(existsSync(path.join(setup.dir, "run.json")), false);
+
+  // starting again from the edited files works and copies exactly the selected tasks
+  const reloaded = { ...setup, tasks: await loadTasks(path.dirname(file).replace(/stack$/, "")) };
+  const one = { ...reloaded, tasks: reloaded.tasks.filter((task) => task.id === "stack/one") };
+  await run(one, call);
+  const copied = await loadTasks(path.join(setup.dir, "tasks"));
+  assert.deepEqual(
+    copied.map((task) => [task.id, task.reference.status]),
+    [["stack/one", "impossible"]],
+  );
+});
+
 test("keeps polling a started response instead of sending the task again", async () => {
   const setup = await fixture();
   const one = { ...setup, tasks: setup.tasks.filter((task) => task.id === "stack/one") };

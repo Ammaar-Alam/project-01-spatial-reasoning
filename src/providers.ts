@@ -132,15 +132,17 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
     stream: false,
   } as OpenAI.Responses.ResponseCreateParamsNonStreaming;
 
+  // one deadline covers picking up, sending, waiting and polling
+  const signal = AbortSignal.timeout(DEADLINE_MS);
   // a saved response is picked up again unless it is gone or failed in a way a new request could fix
-  let response = resume.responseId ? await retrieve(poller, resume.responseId) : undefined;
+  let response = resume.responseId ? await retrieve(poller, resume.responseId, signal) : undefined;
   if (
     !response ||
     response.status === "cancelled" ||
     (response.status === "failed" && !isOpenAIPolicyBlock(response.error?.code))
   ) {
     try {
-      response = await client.responses.create(body, { signal: AbortSignal.timeout(DEADLINE_MS) });
+      response = await client.responses.create(body, { signal });
     } catch (error) {
       // a policy block before generation starts comes back as an http 403
       if (error instanceof OpenAI.APIError && isOpenAIPolicyBlock(error.code)) {
@@ -154,11 +156,10 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
   }
 
   // with "background": true the request returns right away and is polled until it finishes
-  const deadline = Date.now() + DEADLINE_MS;
   while (response.status === "queued" || response.status === "in_progress") {
-    if (Date.now() > deadline) throw new Error(`${response.id} still ${response.status}`);
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    response = await poller.responses.retrieve(response.id);
+    if (signal.aborted) throw new Error(`${response.id} still ${response.status} at the deadline`);
+    response = await poller.responses.retrieve(response.id, {}, { signal });
   }
   const { error } = response;
   if (response.status === "failed" && error && isOpenAIPolicyBlock(error.code)) {
@@ -186,7 +187,9 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
     servedModel: response.model,
     servedBy: null,
     responseId: response.id,
-    refusal: refusals.length > 0 ? refusals.join("\n") : null,
+    refusal:
+      refusals.join("\n") ||
+      (response.incomplete_details?.reason === "content_filter" ? "content_filter" : null),
     usage: response.usage ?? null,
   };
 }
@@ -241,7 +244,9 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
     servedModel: completion.model,
     servedBy: completion.provider ?? null,
     responseId: completion.id,
-    refusal: choice.message.refusal ?? null,
+    refusal:
+      choice.message.refusal ||
+      (choice.finish_reason === "content_filter" ? "content_filter" : null),
     usage: completion.usage ?? null,
   };
 }
@@ -278,9 +283,9 @@ const blocked = (
   ...reply,
 });
 
-async function retrieve(poller: OpenAI, id: string) {
+async function retrieve(poller: OpenAI, id: string, signal: AbortSignal) {
   try {
-    return await poller.responses.retrieve(id);
+    return await poller.responses.retrieve(id, {}, { signal });
   } catch (error) {
     if (error instanceof OpenAI.NotFoundError) return undefined;
     throw error;
@@ -328,14 +333,18 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
   const data = (await response.json()) as GeminiResponse;
   const candidate = data.candidates?.[0];
   const parts = candidate?.content?.parts ?? [];
+  const finish = candidate?.finishReason;
   return {
     text: parts.flatMap((part) => (part.thought || !part.text ? [] : [part.text])).join(""),
-    stopReason: candidate?.finishReason ?? data.promptFeedback?.blockReason ?? null,
+    stopReason: finish ?? data.promptFeedback?.blockReason ?? null,
     servedModel: data.modelVersion ?? null,
     servedBy: null,
     responseId: data.responseId ?? null,
-    // gemini signals a block through finishReason or blockReason, kept in stopReason
-    refusal: null,
+    // gemini signals a block through a blocked prompt or a filter stop rather than a refusal
+    refusal:
+      data.promptFeedback?.blockReason ?? (finish && GEMINI_FILTERS.has(finish) ? finish : null),
     usage: data.usageMetadata ?? null,
   };
 }
+
+const GEMINI_FILTERS = new Set(["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"]);

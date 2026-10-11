@@ -218,14 +218,21 @@ async function openRun(dir: string, settings: Settings, tasks: Task[]): Promise<
     }
     return;
   }
-  await mkdir(dir, { recursive: true });
   // copies of the task files and images as run, so later edits never lose the inputs or answer keys
+  // without run.json nothing has been sent yet, so any earlier copy is from a start that failed
+  const copy = path.join(dir, "tasks");
+  await rm(copy, { recursive: true, force: true });
   for (const task of tasks) {
-    const folder = path.join(dir, "tasks", task.family);
     for (const source of [task.file, ...task.images]) {
-      const target = path.join(folder, path.relative(path.dirname(task.file), source));
+      const target = path.join(copy, task.family, path.relative(path.dirname(task.file), source));
       await mkdir(path.dirname(target), { recursive: true });
       await copyFile(source, target);
+    }
+  }
+  // a task edited after it was loaded would leave the copy different from what is sent
+  for (const task of await loadTasks(copy)) {
+    if (fingerprint(task, await buildRequest(task)) !== settings.tasks[task.id]) {
+      throw new Error(`${task.id} changed while the run was starting, start it again`);
     }
   }
   const run = { ...settings, createdAt: new Date().toISOString(), commit: commit() };

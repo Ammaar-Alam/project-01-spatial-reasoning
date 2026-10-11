@@ -48,7 +48,10 @@ beforeEach(() => {
   }
 });
 
-afterEach(() => mock.restoreAll());
+afterEach(() => {
+  mock.restoreAll();
+  mock.timers.reset();
+});
 
 test("anthropic streams one message with the image before the text", async () => {
   const sent = fakeFetch(
@@ -305,6 +308,85 @@ test("openai keeps a policy block as the model's answer instead of sending the t
     assert.equal(sent.length, 1);
     assert.equal(reply.text, "");
     assert.match(reply.refusal ?? "", /Safety systems blocked this/);
+    mock.restoreAll();
+  }
+});
+
+test("openai stops polling a background response at the deadline", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const deadline = new AbortController();
+  mock.method(AbortSignal, "timeout", () => deadline.signal);
+  const sent = fakeFetch(json(openaiResponse("queued")), completed());
+  // the deadline passes while the first poll is waiting
+  const pending = callModel(
+    { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
+    request,
+    { started: () => deadline.abort() },
+  );
+  pending.catch(() => {});
+  for (let i = 0; i < 5; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+    mock.timers.tick(15_000);
+  }
+  await assert.rejects(pending, /resp_1 still queued at the deadline/);
+  assert.equal(sent.length, 1);
+});
+
+test("a reply stopped by a content filter is a refusal, even if its text is an answer", async () => {
+  const config = (provider: "openai" | "openrouter" | "gemini", model: string) => ({
+    provider,
+    model,
+    params: {},
+  });
+  const cases = [
+    {
+      config: config("openai", "gpt-6.1-sol"),
+      response: openaiResponse("incomplete", {
+        incomplete_details: { reason: "content_filter" },
+        output: [
+          {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: answer, annotations: [] }],
+          },
+        ],
+      }),
+      refusal: "content_filter",
+    },
+    {
+      config: config("openrouter", "z-ai/glm-5.3"),
+      response: {
+        id: "gen-1",
+        object: "chat.completion",
+        created: 0,
+        model: "z-ai/glm-5.3",
+        choices: [
+          {
+            index: 0,
+            finish_reason: "content_filter",
+            message: { role: "assistant", content: answer },
+          },
+        ],
+      },
+      refusal: "content_filter",
+    },
+    {
+      config: config("gemini", "gemini-3.8-flash"),
+      response: {
+        candidates: [{ content: { parts: [{ text: answer }] }, finishReason: "SAFETY" }],
+      },
+      refusal: "SAFETY",
+    },
+    {
+      config: config("gemini", "gemini-3.8-flash"),
+      response: { promptFeedback: { blockReason: "PROHIBITED_CONTENT" } },
+      refusal: "PROHIBITED_CONTENT",
+    },
+  ];
+  for (const { config, response, refusal } of cases) {
+    fakeFetch(json(response));
+    const reply = await callModel(config, request);
+    assert.equal(reply.refusal, refusal, config.provider);
     mock.restoreAll();
   }
 });
