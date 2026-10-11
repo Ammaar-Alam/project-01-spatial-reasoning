@@ -147,7 +147,17 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
       log(`[${records.length}/${jobs.length}] ${model} ${task.id} #${attempt} ${outcome}`);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, () =>
+    worker().catch((error: unknown) => {
+      // no new work after a failure, requests already sent still finish and are saved
+      next = jobs.length;
+      throw error;
+    }),
+  );
+  // waits for every worker, not just the first failure, so the lock outlives every request
+  for (const result of await Promise.allSettled(workers)) {
+    if (result.status === "rejected") throw result.reason;
+  }
   return records;
 }
 

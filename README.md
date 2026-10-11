@@ -114,13 +114,13 @@ pnpm bench --name pilot --models claude-opus-5-5,glm-5.3 --attempts 3
 | `--concurrency` | Requests in flight at once. Defaults to 4 |
 | `--dry-run` | Prints what each model would receive and calls nothing |
 
-Each attempt is exactly one request, with no retries, repairs or feedback, and OpenRouter is not allowed to fall back to another provider. OpenAI requests with `"background": true` are polled until they finish, which does not send the task again.
+Each attempt is exactly one request, with no retries, repairs or feedback, and OpenRouter is not allowed to fall back to another provider. A request may take up to 30 minutes. OpenAI requests with `"background": true` are polled until they finish, which does not send the task again.
 
 A run writes:
 
 - `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task, a hash of the code and locked dependencies, the start time and the commit the code was run from.
 - `results/<name>/tasks/` is a copy of every task file and image the run used, in the same layout as `tasks/`, so the inputs and answer keys survive later edits and can be regraded.
-- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, any refusal text, and token usage and cost as the provider reported them. A reply the provider marks as a refusal fails with `refused`, even if its text happens to be a correct answer, and the refusal text is kept.
+- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, any refusal text, and token usage and cost as the provider reported them. A reply the provider marks as a refusal, including a refusal OpenRouter reports as an error, fails with `refused`, even if its text happens to be a correct answer, and the refusal text is kept.
 
 A request that fails before producing an answer, such as a network error, a provider outage, or an upstream error OpenRouter reports inside a normal response, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again, and its latency still counts from when it was first sent. A run can only be resumed with the same settings, task files and code, so changing any of them needs a new run name. If a crash cuts off the last line of `records.jsonl`, the next run moves that partial line to `records.jsonl.partial` and retries the attempt. Only one command can work on a run name at a time; a second one stops with an error instead of sending the same attempts again.
 

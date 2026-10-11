@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
+import { Agent } from "undici";
 import type { ModelRequest } from "./prompt.ts";
 import { callModel } from "./providers.ts";
 
-type Sent = { url: string; headers: Headers; body: Record<string, unknown> };
+type Sent = { url: string; headers: Headers; body: Record<string, unknown>; dispatcher: unknown };
 
 // replaces fetch with canned responses and records what each request sent
 function fakeFetch(...responses: Response[]): Sent[] {
@@ -11,7 +12,12 @@ function fakeFetch(...responses: Response[]): Sent[] {
   mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const request = new Request(input, init);
     const text = await request.text();
-    sent.push({ url: request.url, headers: request.headers, body: text ? JSON.parse(text) : {} });
+    sent.push({
+      url: request.url,
+      headers: request.headers,
+      body: text ? JSON.parse(text) : {},
+      dispatcher: init?.dispatcher,
+    });
     const response = responses.shift();
     if (!response) throw new Error("unexpected request");
     return response;
@@ -81,6 +87,7 @@ test("anthropic streams one message with the image before the text", async () =>
 
   assert.equal(sent.length, 1);
   assert.equal(sent[0]?.url, "https://api.anthropic.com/v1/messages");
+  assert.ok(sent[0]?.dispatcher instanceof Agent);
   assert.equal(sent[0]?.headers.get("x-api-key"), "test-anthropic");
   assert.deepEqual(sent[0]?.body, {
     max_tokens: 1000,
@@ -134,6 +141,7 @@ test("openai sends one responses request and returns its text", async () => {
   );
 
   assert.equal(sent[0]?.url, "https://api.openai.com/v1/responses");
+  assert.ok(sent[0]?.dispatcher instanceof Agent);
   assert.equal(sent[0]?.headers.get("authorization"), "Bearer test-openai");
   assert.deepEqual(sent[0]?.body, {
     reasoning: { effort: "high" },
@@ -302,6 +310,7 @@ test("openrouter sends a chat completion and records the upstream host", async (
   );
 
   assert.equal(sent[0]?.url, "https://openrouter.ai/api/v1/chat/completions");
+  assert.ok(sent[0]?.dispatcher instanceof Agent);
   assert.equal(sent[0]?.headers.get("authorization"), "Bearer test-openrouter");
   // a failed upstream is never handed to another provider within the same attempt
   assert.deepEqual(sent[0]?.body, {
@@ -359,6 +368,7 @@ test("gemini skips thought parts and keeps the answer text", async () => {
     sent[0]?.url,
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
   );
+  assert.ok(sent[0]?.dispatcher instanceof Agent);
   assert.equal(sent[0]?.headers.get("x-goog-api-key"), "test-gemini");
   assert.deepEqual(sent[0]?.body, {
     generationConfig: { thinkingConfig: { thinkingLevel: "high" } },
@@ -418,6 +428,29 @@ test("openrouter treats an error inside a 200 response as a failed call", async 
     callModel({ provider: "openrouter", model: "z-ai/glm-5.3", params: {} }, request),
     /no choices/,
   );
+});
+
+test("openrouter keeps a refusal reported as an error as the model's answer", async () => {
+  const blocked = (error_type: string) => ({
+    code: 403,
+    message: "The model declined this request.",
+    metadata: { error_type, provider_name: "Z.AI" },
+  });
+  for (const response of [
+    json({ error: blocked("refusal") }, 403),
+    json({ error: blocked("content_policy_violation") }, 403),
+    json({ id: "gen-1", object: "chat.completion", created: 0, error: blocked("refusal") }),
+  ]) {
+    fakeFetch(response);
+    const reply = await callModel(
+      { provider: "openrouter", model: "z-ai/glm-5.3", params: {} },
+      request,
+    );
+    assert.equal(reply.text, "");
+    assert.equal(reply.refusal, "The model declined this request.");
+    assert.equal(reply.servedBy, "Z.AI");
+    mock.restoreAll();
+  }
 });
 
 test("keeps refusal text while the answer itself stays empty", async () => {

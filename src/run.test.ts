@@ -139,6 +139,29 @@ test("lets only one invocation work on a run at a time", async () => {
   assert.equal(existsSync(path.join(setup.dir, "run.lock")), false);
 });
 
+test("stops taking new work after a failure but keeps the lock until requests in flight finish", async () => {
+  const setup = await fixture();
+  const { call, calls } = fakeModels();
+  // the first request fails quickly while the others are still waiting on the provider
+  let sent = 0;
+  let inFlight = 0;
+  const slow: Call = async (...args) => {
+    inFlight++;
+    await new Promise((resolve) => setTimeout(resolve, ++sent === 1 ? 10 : 100));
+    inFlight--;
+    return call(...args);
+  };
+  let logged = 0;
+  const log = () => {
+    if (++logged === 1) throw new Error("disk full");
+  };
+  await assert.rejects(run(setup, slow, { log }), /disk full/);
+  assert.equal(inFlight, 0);
+  assert.equal(calls.length, 3);
+  assert.equal((await readRecords(path.join(setup.dir, "records.jsonl"))).length, 3);
+  assert.equal(existsSync(path.join(setup.dir, "run.lock")), false);
+});
+
 test("takes over the lock of a run that was killed", async () => {
   const setup = await fixture();
   await mkdir(setup.dir, { recursive: true });

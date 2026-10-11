@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { Agent } from "undici";
 import type { ModelConfig } from "./models.ts";
 import type { ModelRequest } from "./prompt.ts";
 
@@ -26,8 +27,11 @@ export const API_KEYS: Record<Provider, string> = {
   openrouter: "OPENROUTER_API_KEY",
 };
 
+const TIMEOUT_MS = 30 * 60 * 1000;
+// node's fetch gives up after 5 minutes without a byte, and a long generation can stay silent longer
+const dispatcher = new Agent({ headersTimeout: TIMEOUT_MS, bodyTimeout: TIMEOUT_MS });
 // sdk retries are off so one attempt is always exactly one generation request
-const CLIENT = { maxRetries: 0, timeout: 30 * 60 * 1000 };
+const CLIENT = { maxRetries: 0, timeout: TIMEOUT_MS, fetchOptions: { dispatcher } };
 const POLL_INTERVAL_MS = 15_000;
 const POLL_LIMIT_MS = 3 * 60 * 60 * 1000;
 
@@ -163,7 +167,7 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
 
 async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: string) {
   const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1", ...CLIENT });
-  const completion = await client.chat.completions.create({
+  const body = {
     ...config.params,
     // otherwise a failed upstream is quietly sent on to another provider, a second generation
     provider: { ...(config.params.provider as object | undefined), allow_fallbacks: false },
@@ -182,23 +186,56 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
       },
     ],
     stream: false,
-  } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
-  // openrouter reports an upstream failure inside a 200 response, which is a failed call, not an answer
-  const choice = completion.choices[0] as
-    | (OpenAI.Chat.ChatCompletion.Choice & { error?: { message?: string } })
-    | undefined;
-  if (!choice) throw new Error(`${completion.id} returned no choices`);
-  if (choice.error || (choice.finish_reason as string) === "error") {
-    throw new Error(`${completion.id}: ${choice.error?.message ?? "upstream error"}`);
+  } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+  let completion: OpenAI.Chat.ChatCompletion & { provider?: string; error?: OpenRouterError };
+  try {
+    completion = await client.chat.completions.create(body);
+  } catch (error) {
+    // a policy block usually comes back as an http 403
+    const blocked = error instanceof OpenAI.APIError ? policyRefusal(error.error, null) : undefined;
+    if (blocked) return blocked;
+    throw error;
   }
+  // a 200 response can still carry a policy block, or an upstream failure that is not an answer
+  const choice = completion.choices?.[0] as
+    | (OpenAI.Chat.ChatCompletion.Choice & { error?: OpenRouterError })
+    | undefined;
+  const failure = completion.error ?? choice?.error;
+  const blocked = policyRefusal(failure, completion.id);
+  if (blocked) return blocked;
+  if (failure || (choice?.finish_reason as string) === "error") {
+    throw new Error(`${completion.id}: ${failure?.message ?? "upstream error"}`);
+  }
+  if (!choice) throw new Error(`${completion.id} returned no choices`);
   return {
     text: choice.message.content ?? "",
     stopReason: choice.finish_reason,
     servedModel: completion.model,
-    servedBy: (completion as { provider?: string }).provider ?? null,
+    servedBy: completion.provider ?? null,
     responseId: completion.id,
     refusal: choice.message.refusal ?? null,
     usage: completion.usage ?? null,
+  };
+}
+
+type OpenRouterError = {
+  message?: string;
+  metadata?: { error_type?: string; provider_name?: string };
+};
+
+// the model or a filter around it declined, which is its answer and the same on every retry
+function policyRefusal(error: unknown, responseId: string | null): ModelReply | undefined {
+  const { message, metadata } = (error ?? {}) as OpenRouterError;
+  const type = metadata?.error_type;
+  if (type !== "refusal" && type !== "content_policy_violation") return undefined;
+  return {
+    text: "",
+    stopReason: type,
+    servedModel: null,
+    servedBy: metadata?.provider_name ?? null,
+    responseId,
+    refusal: message || "refused",
+    usage: null,
   };
 }
 
@@ -228,7 +265,8 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    signal: AbortSignal.timeout(CLIENT.timeout),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    dispatcher,
     body: JSON.stringify({
       ...config.params,
       systemInstruction: { parts: [{ text: request.system }] },
