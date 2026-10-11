@@ -15,7 +15,7 @@ flowchart LR
   check --> grade
 ```
 
-A task file is loaded and validated once. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer through the same grader, so a task cannot enter the benchmark if its own answer breaks its rules.
+A task file is loaded and validated once. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer and alternatives through the same grader, so a task cannot enter the benchmark if its own answer key breaks its rules.
 
 ## Data model
 
@@ -32,6 +32,7 @@ classDiagram
     images: string[]
     constraints: Constraints
     reference: Answer
+    alternatives: Block[][]
   }
   class Constraints {
     maxEdits: number, optional
@@ -75,7 +76,7 @@ classDiagram
   Grade *-- Failure
 ```
 
-A model's answer and a task's reference use the same `Answer` format. That is what lets `check-tasks` grade the reference like any other answer.
+A model's answer and a task's reference use the same `Answer` format. That is what lets `check-tasks` grade the reference and each alternative like any other answer.
 
 `id`, `family` and `parent` are not stored in the file. The loader takes `id` and `family` from the path, and `parent` defaults to the id.
 
@@ -93,7 +94,7 @@ flowchart TD
   legal -- no --> f3["out_of_bounds and/or duplicate_block"]
   legal -- yes --> refB{"Reference is impossible?"}
   refB -- yes --> f4["missed_impossible"]
-  refB -- no --> rules["Check every constraint,<br/>then compare to the reference"]
+  refB -- no --> rules["Check every constraint,<br/>then compare to the reference<br/>and alternatives"]
   rules --> any{"Any failures?"}
   any -- no --> pass2["Pass"]
   any -- yes --> f5["Fail with every<br/>failure found"]
@@ -129,7 +130,7 @@ Moving one block from `(0, 0, 0)` to `(1, 0, 0)` is 1 removal plus 1 addition, s
 | `wrong_block_count` | Final block count differs from `exactBlocks` |
 | `protected_changed` | A protected cell was filled or emptied |
 | `forbidden_edit` | A removal in an add-only task, or an addition in a remove-only task |
-| `wrong_structure` | The final blocks differ from the reference |
+| `wrong_structure` | The final blocks match neither the reference nor any alternative. The message lists the blocks missing and extra compared with the closest one |
 
 ## Modules
 

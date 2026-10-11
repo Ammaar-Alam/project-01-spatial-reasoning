@@ -27,11 +27,17 @@ pnpm install
 
 ## Tasks
 
-Each task is one JSON file at `tasks/<family>/<name>.json`. The path gives the task its id, for example `tasks/transform/mirror-l-01.json` is `transform/mirror-l-01`. Names use lowercase letters, digits and hyphens.
+Everything about a task lives in one JSON file: the prompt, the starting blocks, the rules, and the answer key. To add a task:
+
+1. Create `tasks/<family>/<name>.json`. A new family is a new folder.
+2. Put any images next to it and list them in `images`.
+3. Run `pnpm tasks:check`.
+
+No other file or code changes. The path gives the task its id, for example `tasks/transform/mirror-l-01.json` is `transform/mirror-l-01`. Names use lowercase letters, digits and hyphens.
 
 ```json
 {
-  "prompt": "Mirror the structure across the plane x = 3.5. Use at most 6 edits.",
+  "prompt": "Mirror the structure across the plane x = 3.5.",
   "size": { "x": 8, "y": 4, "z": 4 },
   "initial": [{ "x": 1, "y": 0, "z": 0 }, { "x": 2, "y": 0, "z": 0 }, { "x": 1, "y": 1, "z": 0 }],
   "constraints": { "maxEdits": 6 },
@@ -51,6 +57,7 @@ Each task is one JSON file at `tasks/<family>/<name>.json`. The path gives the t
 | `constraints` | no | Rules the answer must follow, listed below |
 | `parent` | no | Groups variations of one puzzle. Defaults to the task id |
 | `reference` | yes | The correct answer, in the same format a model uses. Never shown to the model |
+| `alternatives` | no | Other final structures that are also correct, for tasks with more than one valid answer |
 
 | Constraint | Rule |
 | --- | --- |
@@ -73,7 +80,7 @@ A model replies with exactly one JSON object, either the full final structure or
 
 One surrounding ` ```json ` fence is allowed. Any other text, a second JSON object, extra fields, non-integer coordinates, blocks outside the grid, or the same block listed twice fails the answer. Nothing is repaired or retried.
 
-An answer passes when it follows every constraint and its blocks match the reference exactly, in any order. On a task whose reference is `impossible`, only an `impossible` answer passes. The reason is kept for review but not scored.
+An answer passes when it follows every constraint and its blocks exactly match the reference or one of the alternatives, in any order. On a task whose reference is `impossible`, only an `impossible` answer passes. The reason is kept for review but not scored.
 
 [docs/architecture.md](docs/architecture.md) has diagrams of the data model and the grading flow, plus every failure code.
 

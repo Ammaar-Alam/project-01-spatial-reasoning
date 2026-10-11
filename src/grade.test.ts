@@ -118,3 +118,24 @@ test("enforces add-only and remove-only tasks", () => {
   const removeOnly = tower({ constraints: { only: "remove" } });
   assert.deepEqual(codes(removeOnly, solved([0, 0, 0], [0, 1, 0], [0, 2, 0])), ["forbidden_edit"]);
 });
+
+test("accepts any listed alternative solution", () => {
+  // test fixture: move the block one step along +x or +z, both are correct
+  const move = taskFileSchema.parse({
+    prompt: "Move the block one step along +x or +z.",
+    size: { x: 4, y: 4, z: 4 },
+    initial: blocks([0, 0, 0]),
+    constraints: { exactEdits: 2 },
+    reference: { status: "solved", blocks: blocks([1, 0, 0]) },
+    alternatives: [blocks([0, 0, 1])],
+  });
+  assert.equal(grade(move, solved([1, 0, 0])).pass, true);
+  assert.equal(grade(move, solved([0, 0, 1])).pass, true);
+  assert.deepEqual(codes(move, solved([0, 1, 0])), ["wrong_structure"]);
+});
+
+test("reports the difference from the closest accepted structure", () => {
+  const task = tower({ alternatives: [blocks([0, 0, 0], [0, 1, 0], [1, 1, 0])] });
+  const [failure] = grade(task, solved([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0])).failures;
+  assert.equal(failure?.message, "1 block extra: (2, 1, 0)");
+});

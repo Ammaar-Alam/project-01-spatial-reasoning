@@ -30,8 +30,17 @@ export const taskFileSchema = z
       .default({ protected: [] }),
     // never shown to the model
     reference: answerSchema,
+    // other final structures that are also correct, for tasks without a unique answer
+    alternatives: z.array(z.array(blockSchema)).default([]),
   })
   .superRefine((task, ctx) => {
+    if (task.reference.status === "impossible" && task.alternatives.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["alternatives"],
+        message: "an impossible task has no alternative solutions",
+      });
+    }
     const groups = [
       { field: ["initial"], blocks: task.initial },
       { field: ["constraints", "protected"], blocks: task.constraints.protected },

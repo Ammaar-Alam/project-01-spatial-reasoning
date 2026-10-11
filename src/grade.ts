@@ -29,7 +29,10 @@ export type Failure = { code: FailureCode; message: string };
 
 export type Grade = { pass: boolean; failures: Failure[] };
 
-export type GradedTask = Pick<Task, "size" | "initial" | "constraints" | "reference">;
+export type GradedTask = Pick<
+  Task,
+  "size" | "initial" | "constraints" | "reference" | "alternatives"
+>;
 
 export function grade(task: GradedTask, raw: string): Grade {
   const parsed = parseAnswer(raw);
@@ -55,7 +58,8 @@ function check(task: GradedTask, answer: Answer): Failure[] {
     ];
   }
 
-  return [...constraints(task, answer.blocks), ...structure(reference.blocks, answer.blocks)];
+  const accepted: [Block[], ...Block[][]] = [reference.blocks, ...task.alternatives];
+  return [...constraints(task, answer.blocks), ...structure(accepted, answer.blocks)];
 }
 
 function legality(task: GradedTask, blocks: Block[]): Failure[] {
@@ -138,10 +142,16 @@ function constraints(task: GradedTask, final: Block[]): Failure[] {
   return failures;
 }
 
-// exact occupancy match, block order does not matter
-function structure(expected: Block[], actual: Block[]): Failure[] {
-  const missing = difference(expected, actual);
-  const extra = difference(actual, expected);
+// exact occupancy match with any accepted structure, block order does not matter
+// a miss is described against the closest accepted structure
+function structure(accepted: [Block[], ...Block[][]], actual: Block[]): Failure[] {
+  const diffs = accepted.map((expected) => ({
+    missing: difference(expected, actual),
+    extra: difference(actual, expected),
+  }));
+  const size = (diff: { missing: Block[]; extra: Block[] }) =>
+    diff.missing.length + diff.extra.length;
+  const { missing, extra } = diffs.reduce((best, diff) => (size(diff) < size(best) ? diff : best));
   if (missing.length === 0 && extra.length === 0) return [];
 
   const parts = [];

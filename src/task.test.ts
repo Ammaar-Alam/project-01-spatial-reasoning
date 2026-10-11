@@ -73,6 +73,11 @@ test("rejects invalid task files", async () => {
     ],
   });
   await loadError("stack/bad-size.json", { ...base, size: { x: 0, y: 4, z: 4 } });
+  await loadError("stack/impossible-alternatives.json", {
+    ...base,
+    reference: { status: "impossible", reason: "the grid is full" },
+    alternatives: [[{ x: 1, y: 0, z: 0 }]],
+  });
 });
 
 test("checks that task images exist and are images", async () => {
@@ -107,4 +112,27 @@ test("flags tasks whose reference answer breaks their own rules", async () => {
   assert.equal(checked, 2);
   assert.equal(problems.length, 1);
   assert.match(problems[0] ?? "", /^stack\/tower-01: reference answer fails\n {2}too_many_edits/);
+});
+
+test("flags alternative answers that break the task's rules", async () => {
+  const root = await tasksDir({
+    "stack/tower-01.json": {
+      ...base,
+      constraints: { maxEdits: 1 },
+      alternatives: [
+        [
+          { x: 0, y: 0, z: 0 },
+          { x: 1, y: 0, z: 0 },
+        ],
+        [
+          { x: 0, y: 0, z: 0 },
+          { x: 1, y: 0, z: 0 },
+          { x: 2, y: 0, z: 0 },
+        ],
+      ],
+    },
+  });
+  const { problems } = await checkTasks(root);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0] ?? "", /^stack\/tower-01: alternative 2 fails\n {2}too_many_edits/);
 });
