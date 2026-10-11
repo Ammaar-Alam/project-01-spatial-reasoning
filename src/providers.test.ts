@@ -173,9 +173,11 @@ test("openai polls a background response without sending it again", async () => 
       }),
     ),
   );
+  const started: string[] = [];
   const pending = callModel(
     { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
     request,
+    { started: (id) => started.push(id) },
   );
   while (sent.length < 3) {
     await new Promise((resolve) => setImmediate(resolve));
@@ -191,8 +193,56 @@ test("openai polls a background response without sending it again", async () => 
       "https://api.openai.com/v1/responses/resp_1",
     ],
   );
+  assert.deepEqual(started, ["resp_1"]);
   assert.equal(reply.text, '{"status":');
   assert.equal(reply.stopReason, "max_output_tokens");
+});
+
+const completed = () =>
+  json(
+    openaiResponse("completed", {
+      output: [
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: answer, annotations: [] }],
+        },
+      ],
+    }),
+  );
+
+test("openai picks up a saved response instead of sending the task again", async () => {
+  const sent = fakeFetch(completed());
+  const reply = await callModel(
+    { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
+    request,
+    { responseId: "resp_1", started: () => {} },
+  );
+  assert.deepEqual(
+    sent.map((s) => s.url),
+    ["https://api.openai.com/v1/responses/resp_1"],
+  );
+  assert.equal(reply.text, answer);
+});
+
+test("openai sends the task again only when the saved response failed or is gone", async () => {
+  for (const saved of [
+    json(openaiResponse("failed", { error: { code: "server_error", message: "boom" } })),
+    json({ error: { message: "not found", type: "invalid_request_error" } }, 404),
+  ]) {
+    const sent = fakeFetch(saved, completed());
+    const reply = await callModel(
+      { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
+      request,
+      { responseId: "resp_1", started: () => {} },
+    );
+    assert.deepEqual(
+      sent.map((s) => s.url),
+      ["https://api.openai.com/v1/responses/resp_1", "https://api.openai.com/v1/responses"],
+    );
+    assert.equal(reply.text, answer);
+    mock.restoreAll();
+  }
 });
 
 test("openai reports a failed response as an error", async () => {

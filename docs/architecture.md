@@ -152,6 +152,8 @@ sequenceDiagram
     Run->>Call: request
     Call->>API: one generation request
     opt OpenAI background request
+      Call-->>Run: response id
+      Run->>File: append started record
       loop until it finishes
         Call->>API: check status
       end
@@ -166,9 +168,11 @@ sequenceDiagram
 
 Every attempt is one generation request. The SDK retry loops are turned off and a failed request is never sent again within a run. Checking on an OpenAI background request is allowed because it does not generate anything new.
 
-If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries only the errors, so earlier error lines stay in the file as a record of what happened.
+If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened.
 
-`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash of each task's request. A later run with the same name must match all of them, so one run never mixes prompts, settings or task versions.
+An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one. It only sends the task again when the saved response failed, was cancelled, or no longer exists.
+
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash of each task's request together with its reference and alternatives. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions or answer keys.
 
 ## Modules
 

@@ -121,7 +121,7 @@ A run writes two files:
 - `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task's request, the start time and the commit the code was run from.
 - `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, and token usage and cost as the provider reported them.
 
-A request that fails before producing an answer, such as a network error or provider outage, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. A run can only be resumed with the same settings and task files, so changing either needs a new run name.
+A request that fails before producing an answer, such as a network error or provider outage, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again. A run can only be resumed with the same settings, task files and answer keys, so changing any of them needs a new run name.
 
 [docs/architecture.md](docs/architecture.md) has diagrams of the data model, the grading flow and a run, plus every failure code.
 

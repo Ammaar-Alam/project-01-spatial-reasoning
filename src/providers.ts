@@ -29,15 +29,23 @@ const CLIENT = { maxRetries: 0, timeout: 30 * 60 * 1000 };
 const POLL_INTERVAL_MS = 15_000;
 const POLL_LIMIT_MS = 3 * 60 * 60 * 1000;
 
+// lets a long background request outlive a failed poll or a crash
+// started hands over the provider's id right away, a later run passes it back to keep polling
+export type Resume = { responseId?: string; started: (responseId: string) => void };
+
 // params go first so a config can never replace the model, prompt or images
-export async function callModel(config: ModelConfig, request: ModelRequest): Promise<ModelReply> {
+export async function callModel(
+  config: ModelConfig,
+  request: ModelRequest,
+  resume: Resume = { started: () => {} },
+): Promise<ModelReply> {
   const apiKey = process.env[API_KEYS[config.provider]];
   if (!apiKey) throw new Error(`${API_KEYS[config.provider]} is not set`);
   switch (config.provider) {
     case "anthropic":
       return anthropic(config, request, apiKey);
     case "openai":
-      return openai(config, request, apiKey);
+      return openai(config, request, apiKey, resume);
     case "gemini":
       return gemini(config, request, apiKey);
     case "openrouter":
@@ -84,31 +92,39 @@ async function anthropic(config: ModelConfig, request: ModelRequest, apiKey: str
   };
 }
 
-async function openai(config: ModelConfig, request: ModelRequest, apiKey: string) {
+async function openai(config: ModelConfig, request: ModelRequest, apiKey: string, resume: Resume) {
   const client = new OpenAI({ apiKey, ...CLIENT });
-  let response = await client.responses.create({
-    ...config.params,
-    model: config.model,
-    instructions: request.system,
-    input: [
-      {
-        role: "user",
-        content: [
-          ...request.images.map((image) => ({
-            type: "input_image" as const,
-            image_url: dataUrl(image),
-            detail: "high" as const,
-          })),
-          { type: "input_text" as const, text: request.text },
-        ],
-      },
-    ],
-    stream: false,
-  } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
+  // checking on an existing response is not a new attempt, so this client may retry
+  const poller = new OpenAI({ apiKey });
+
+  // a saved response is picked up again unless it failed or no longer exists
+  let response = resume.responseId ? await retrieve(poller, resume.responseId) : undefined;
+  if (!response || response.status === "failed" || response.status === "cancelled") {
+    response = await client.responses.create({
+      ...config.params,
+      model: config.model,
+      instructions: request.system,
+      input: [
+        {
+          role: "user",
+          content: [
+            ...request.images.map((image) => ({
+              type: "input_image" as const,
+              image_url: dataUrl(image),
+              detail: "high" as const,
+            })),
+            { type: "input_text" as const, text: request.text },
+          ],
+        },
+      ],
+      stream: false,
+    } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
+    if (response.status === "queued" || response.status === "in_progress") {
+      resume.started(response.id);
+    }
+  }
 
   // with "background": true the request returns right away and is polled until it finishes
-  // polling an existing response is not a new attempt, so the poller may retry
-  const poller = new OpenAI({ apiKey });
   const deadline = Date.now() + POLL_LIMIT_MS;
   while (response.status === "queued" || response.status === "in_progress") {
     if (Date.now() > deadline) throw new Error(`${response.id} still ${response.status}`);
@@ -160,6 +176,15 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
     responseId: completion.id,
     usage: completion.usage ?? null,
   };
+}
+
+async function retrieve(poller: OpenAI, id: string) {
+  try {
+    return await poller.responses.retrieve(id);
+  } catch (error) {
+    if (error instanceof OpenAI.NotFoundError) return undefined;
+    throw error;
+  }
 }
 
 type GeminiResponse = {

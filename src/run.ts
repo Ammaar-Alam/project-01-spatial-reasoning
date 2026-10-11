@@ -8,12 +8,16 @@ import { checkTasks } from "./check-tasks.ts";
 import { type Failure, grade } from "./grade.ts";
 import { loadModels, type ModelConfig } from "./models.ts";
 import { buildRequest, type ModelRequest, SYSTEM_PROMPT } from "./prompt.ts";
-import { API_KEYS, callModel, type ModelReply } from "./providers.ts";
+import { API_KEYS, callModel, type ModelReply, type Resume } from "./providers.ts";
 import { loadTasks, TASKS_DIR, type Task } from "./task.ts";
 
-export type Call = (config: ModelConfig, request: ModelRequest) => Promise<ModelReply>;
+export type Call = (
+  config: ModelConfig,
+  request: ModelRequest,
+  resume: Resume,
+) => Promise<ModelReply>;
 
-// one line of records.jsonl, written as soon as the attempt finishes
+// one line of records.jsonl, appended as soon as something happens to an attempt
 export type RunRecord = {
   task: string;
   family: string;
@@ -24,8 +28,10 @@ export type RunRecord = {
   latencyMs: number;
 } & (
   | ({ status: "graded"; pass: boolean; failures: Failure[] } & ModelReply)
-  // the call itself failed, no answer was produced or graded
-  | { status: "error"; error: string }
+  // the provider accepted a background request, the next run keeps polling this id
+  | { status: "started"; responseId: string }
+  // the call failed and nothing was graded, responseId is set if a background request exists
+  | { status: "error"; error: string; responseId?: string }
 );
 
 // everything that must stay fixed for a run to be resumed
@@ -33,7 +39,7 @@ type Settings = {
   attempts: number;
   system: string;
   models: Record<string, ModelConfig>;
-  // sha256 of exactly what each task sends to a model
+  // sha256 of what each task sends to a model plus its answer key
   tasks: Record<string, string>;
 };
 
@@ -57,20 +63,30 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     attempts,
     system: SYSTEM_PROMPT,
     models,
-    tasks: Object.fromEntries(prepared.map(({ task, request }) => [task.id, hash(request)])),
+    tasks: Object.fromEntries(
+      prepared.map(({ task, request }) => [
+        task.id,
+        hash({ request, reference: task.reference, alternatives: task.alternatives }),
+      ]),
+    ),
   };
   await openRun(dir, settings);
 
+  // a graded attempt is final, anything else is tried again, picking up a saved response id
   const recordsFile = path.join(dir, "records.jsonl");
-  const done = await gradedKeys(recordsFile);
+  const latest = latestRecords(await readRecords(recordsFile));
   const jobs = Array.from({ length: attempts }, (_, i) => i + 1).flatMap((attempt) =>
     prepared.flatMap(({ task, request }) =>
-      Object.entries(models)
-        .filter(([model]) => !done.has(key(task.id, model, attempt)))
-        .map(([model, config]) => ({ task, request, model, config, attempt })),
+      Object.entries(models).flatMap(([model, config]) => {
+        const last = latest.get(key(task.id, model, attempt));
+        if (last?.status === "graded") return [];
+        const responseId = last && "responseId" in last ? last.responseId : undefined;
+        return [{ task, request, model, config, attempt, responseId }];
+      }),
     ),
   );
 
+  const save = (record: RunRecord) => appendFileSync(recordsFile, `${JSON.stringify(record)}\n`);
   const records: RunRecord[] = [];
   let next = 0;
   const worker = async () => {
@@ -86,22 +102,28 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
         startedAt: new Date(startedAt).toISOString(),
       };
 
+      let responseId = job.responseId;
+      const started = (id: string) => {
+        responseId = id;
+        save({ ...base, latencyMs: Date.now() - startedAt, status: "started", responseId: id });
+      };
+
       // a failed call is saved as an error, a bug in grading stops the run instead
       let reply: ModelReply | undefined;
       let error = "";
       try {
-        reply = await call(config, request);
+        reply = await call(config, request, { responseId, started });
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
       }
       const latencyMs = Date.now() - startedAt;
       const record: RunRecord = reply
         ? { ...base, latencyMs, status: "graded", ...reply, ...grade(task, reply.text) }
-        : { ...base, latencyMs, status: "error", error };
+        : { ...base, latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
 
-      appendFileSync(recordsFile, `${JSON.stringify(record)}\n`);
+      save(record);
       records.push(record);
-      const outcome = record.status === "error" ? "error" : record.pass ? "pass" : "fail";
+      const outcome = record.status === "graded" ? (record.pass ? "pass" : "fail") : "error";
       log(`[${records.length}/${jobs.length}] ${model} ${task.id} #${attempt} ${outcome}`);
     }
   };
@@ -129,32 +151,25 @@ async function openRun(dir: string, settings: Settings): Promise<void> {
   await writeFile(file, `${JSON.stringify(run, null, 2)}\n`);
 }
 
-// a graded attempt is final, an errored one is tried again on the next run
-async function gradedKeys(file: string): Promise<Set<string>> {
-  return new Set(
-    (await readRecords(file))
-      .filter((record) => record.status === "graded")
-      .map((record) => key(record.task, record.model, record.attempt)),
-  );
-}
-
 export async function readRecords(file: string): Promise<RunRecord[]> {
   if (!existsSync(file)) return [];
   const lines = (await readFile(file, "utf8")).split("\n").filter(Boolean);
   return lines.map((line) => JSON.parse(line) as RunRecord);
 }
 
+// the newest line for each task, model and attempt
+const latestRecords = (records: RunRecord[]) =>
+  new Map(records.map((record) => [key(record.task, record.model, record.attempt), record]));
+
 // one line per model from the latest record of every attempt
 export function summarize(records: RunRecord[], models: string[]): string[] {
-  const latest = new Map(
-    records.map((record) => [key(record.task, record.model, record.attempt), record]),
-  );
+  const latest = [...latestRecords(records).values()];
   return models.map((model) => {
-    const mine = [...latest.values()].filter((record) => record.model === model);
+    const mine = latest.filter((record) => record.model === model);
     const passed = mine.filter((record) => record.status === "graded" && record.pass).length;
     const graded = mine.filter((record) => record.status === "graded").length;
-    const errors = mine.length - graded;
-    return `${model}: ${passed}/${graded} passed${errors > 0 ? `, ${errors} errors, run again to retry them` : ""}`;
+    const unfinished = mine.length - graded;
+    return `${model}: ${passed}/${graded} passed${unfinished > 0 ? `, ${unfinished} unfinished, run again to finish them` : ""}`;
   });
 }
 

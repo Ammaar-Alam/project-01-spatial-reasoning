@@ -143,6 +143,49 @@ test("refuses to resume a run with different settings or changed tasks", async (
   await assert.rejects(run({ ...setup, tasks: edited }, call), /different tasks/);
 });
 
+test("refuses to resume a run after its answer key changes", async () => {
+  const setup = await fixture();
+  const { call } = fakeModels();
+  await run(setup, call);
+  const rekeyed = setup.tasks.map((task) => ({
+    ...task,
+    alternatives: [[{ x: 1, y: 0, z: 0 }]],
+  }));
+  await assert.rejects(run({ ...setup, tasks: rekeyed }, call), /different tasks/);
+});
+
+test("keeps polling a started response instead of sending the task again", async () => {
+  const setup = await fixture();
+  const one = { ...setup, tasks: setup.tasks.filter((task) => task.id === "stack/one") };
+  const lost: Call = async (_config, _request, resume) => {
+    resume.started("resp_9");
+    throw new Error("poll failed");
+  };
+  await run(one, lost, { models: { builder: models.builder as ModelConfig }, attempts: 1 });
+
+  const file = path.join(setup.dir, "records.jsonl");
+  const saved = await readRecords(file);
+  assert.deepEqual(
+    saved.map((record) => [record.status, "responseId" in record ? record.responseId : null]),
+    [
+      ["started", "resp_9"],
+      ["error", "resp_9"],
+    ],
+  );
+
+  // a crash after the response was created leaves only the started line
+  await writeFile(file, `${JSON.stringify(saved[0])}\n`);
+  const resumed: (string | undefined)[] = [];
+  const finish: Call = async (config, request, resume) => {
+    resumed.push(resume.responseId);
+    return fakeModels().call(config, request, resume);
+  };
+  await run(one, finish, { models: { builder: models.builder as ModelConfig }, attempts: 1 });
+  assert.deepEqual(resumed, ["resp_9"]);
+  const final = (await readRecords(file)).at(-1);
+  assert.equal(final?.status === "graded" && final.pass, true);
+});
+
 test("summarizes errors that still need a retry", () => {
   const base = { family: "stack", parent: "stack/one", model: "m", attempt: 1, startedAt: "" };
   const records = [
@@ -157,7 +200,9 @@ test("summarizes errors that still need a retry", () => {
       ...reply(""),
     },
   ];
-  assert.deepEqual(summarize(records, ["m"]), ["m: 1/1 passed, 1 errors, run again to retry them"]);
+  assert.deepEqual(summarize(records, ["m"]), [
+    "m: 1/1 passed, 1 unfinished, run again to finish them",
+  ]);
 });
 
 test("selects tasks by family or id", async () => {
