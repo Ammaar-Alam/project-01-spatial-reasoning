@@ -167,9 +167,11 @@ sequenceDiagram
   end
 ```
 
-Every attempt is one generation request. The SDK retry loops are turned off and a failed request is never sent again within a run. Checking on an OpenAI background request is allowed because it does not generate anything new.
+Every attempt is one generation request. The SDK retry loops are turned off and a failed request is never sent again within a run. OpenRouter's fallback to a second provider is turned off for the same reason, so a failed upstream is a failed call. Checking on an OpenAI background request is allowed because it does not generate anything new.
 
-If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened.
+If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened. A crash partway through writing a line leaves it cut off, so the next run moves that partial line to `records.jsonl.partial` before reading the file, and the attempt it belonged to is retried.
+
+Newer OpenAI models can write commentary messages before the final answer. Messages marked as commentary are left out of the reply text, so the grader sees only the answer.
 
 An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists. Whether the answer came from the saved response is decided by the response id on the reply, and an answer from a new request is timed from that request alone.
 
@@ -177,7 +179,7 @@ OpenRouter can return HTTP 200 with an `error` on the choice when the upstream m
 
 When a run starts it copies every task file and image it uses into `results/<name>/tasks/`, in the same layout as `tasks/`, so the copy can be loaded and regraded on its own. Images must sit inside their task's family folder for this to work, which `loadTask` enforces.
 
-`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash per task covering every task field except local file paths, plus the exact request. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys or puzzle groupings.
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit.
 
 ## Modules
 

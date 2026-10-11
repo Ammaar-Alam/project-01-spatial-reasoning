@@ -1,7 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  truncate,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual, parseArgs } from "node:util";
 import { checkTasks } from "./check-tasks.ts";
@@ -41,6 +49,8 @@ type Settings = {
   models: Record<string, ModelConfig>;
   // sha256 of what each task sends to a model plus its answer key
   tasks: Record<string, string>;
+  // sha256 of the source and locked dependencies that build requests, call models and grade
+  code: string;
 };
 
 export type RunOptions = {
@@ -66,11 +76,13 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     tasks: Object.fromEntries(
       prepared.map(({ task, request }) => [task.id, fingerprint(task, request)]),
     ),
+    code: await codeVersion(),
   };
   await openRun(dir, settings, tasks);
 
   // a graded attempt is final, anything else is tried again, picking up a saved response id
   const recordsFile = path.join(dir, "records.jsonl");
+  await setAsideCutOffRecord(recordsFile);
   const latest = latestRecords(await readRecords(recordsFile));
   const jobs = Array.from({ length: attempts }, (_, i) => i + 1).flatMap((attempt) =>
     prepared.flatMap(({ task, request }) =>
@@ -173,6 +185,17 @@ function score(task: Task, reply: ModelReply): Grade {
   return grade(task, reply.text);
 }
 
+// a crash mid-write can leave the last line cut off, it moves to records.jsonl.partial so
+// the complete records stay readable and the next one starts on its own line
+async function setAsideCutOffRecord(file: string): Promise<void> {
+  if (!existsSync(file)) return;
+  const data = await readFile(file);
+  const end = data.lastIndexOf("\n") + 1;
+  if (end === data.length) return;
+  await appendFile(`${file}.partial`, data.subarray(end));
+  await truncate(file, end);
+}
+
 export async function readRecords(file: string): Promise<RunRecord[]> {
   if (!existsSync(file)) return [];
   const lines = (await readFile(file, "utf8")).split("\n").filter(Boolean);
@@ -216,6 +239,19 @@ const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(valu
 // every task field except local file paths, plus exactly what the model receives
 const fingerprint = ({ file: _file, images: _images, ...fields }: Task, request: ModelRequest) =>
   hash({ fields, request });
+
+async function codeVersion(): Promise<string> {
+  const root = path.resolve(import.meta.dirname, "..");
+  const files = (await readdir(path.join(root, "src"), { recursive: true }))
+    .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
+    .map((file) => path.join("src", file));
+  const sources = [...files, "pnpm-lock.yaml"].sort();
+  return hash(
+    await Promise.all(
+      sources.map(async (file) => [file, await readFile(path.join(root, file), "utf8")]),
+    ),
+  );
+}
 
 function commit(): { sha: string; dirty: boolean } | null {
   try {

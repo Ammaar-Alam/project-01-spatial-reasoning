@@ -155,6 +155,27 @@ test("openai sends one responses request and returns its text", async () => {
   assert.deepEqual(reply.usage, { input_tokens: 10, output_tokens: 20 });
 });
 
+test("openai returns only the final answer, not commentary before it", async () => {
+  const message = (phase: string, text: string) => ({
+    type: "message",
+    role: "assistant",
+    phase,
+    content: [{ type: "output_text", text, annotations: [] }],
+  });
+  fakeFetch(
+    json(
+      openaiResponse("completed", {
+        output: [
+          message("commentary", "Checking the grid first."),
+          message("final_answer", answer),
+        ],
+      }),
+    ),
+  );
+  const reply = await callModel({ provider: "openai", model: "gpt-6.1-sol", params: {} }, request);
+  assert.equal(reply.text, answer);
+});
+
 test("openai polls a background response without sending it again", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   const sent = fakeFetch(
@@ -275,15 +296,16 @@ test("openrouter sends a chat completion and records the upstream host", async (
     {
       provider: "openrouter",
       model: "z-ai/glm-5.3",
-      params: { provider: { require_parameters: true } },
+      params: { provider: { require_parameters: true, allow_fallbacks: true } },
     },
     request,
   );
 
   assert.equal(sent[0]?.url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(sent[0]?.headers.get("authorization"), "Bearer test-openrouter");
+  // a failed upstream is never handed to another provider within the same attempt
   assert.deepEqual(sent[0]?.body, {
-    provider: { require_parameters: true },
+    provider: { require_parameters: true, allow_fallbacks: false },
     model: "z-ai/glm-5.3",
     messages: [
       { role: "system", content: "system prompt" },

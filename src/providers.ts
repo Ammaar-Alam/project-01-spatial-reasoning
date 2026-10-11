@@ -144,14 +144,14 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
     );
   }
 
-  // output_text skips refusal parts, so they are collected separately
-  const refusals = response.output.flatMap((item) =>
-    item.type === "message"
-      ? item.content.flatMap((part) => (part.type === "refusal" ? [part.refusal] : []))
-      : [],
+  // commentary messages are progress notes before the answer, so only the rest is graded
+  const messages = response.output.flatMap((item) =>
+    item.type === "message" && item.phase !== "commentary" ? [item] : [],
   );
+  const parts = messages.flatMap((message) => message.content);
+  const refusals = parts.flatMap((part) => (part.type === "refusal" ? [part.refusal] : []));
   return {
-    text: response.output_text,
+    text: parts.flatMap((part) => (part.type === "output_text" ? [part.text] : [])).join(""),
     stopReason: response.incomplete_details?.reason ?? response.status ?? null,
     servedModel: response.model,
     servedBy: null,
@@ -165,6 +165,8 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
   const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1", ...CLIENT });
   const completion = await client.chat.completions.create({
     ...config.params,
+    // otherwise a failed upstream is quietly sent on to another provider, a second generation
+    provider: { ...(config.params.provider as object | undefined), allow_fallbacks: false },
     model: config.model,
     messages: [
       { role: "system", content: request.system },

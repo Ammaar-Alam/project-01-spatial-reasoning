@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -107,7 +107,31 @@ test("records the settings a run was started with", async () => {
   assert.deepEqual(settings.models, models);
   assert.deepEqual(Object.keys(settings.tasks), ["stack/one", "stack/two"]);
   assert.match(settings.tasks["stack/one"], /^[0-9a-f]{64}$/);
+  assert.match(settings.code, /^[0-9a-f]{64}$/);
   assert.ok(settings.system.length > 0);
+});
+
+test("refuses to resume a run started with different code", async () => {
+  const setup = await fixture();
+  const { call } = fakeModels();
+  await run(setup, call);
+  const file = path.join(setup.dir, "run.json");
+  const settings = JSON.parse(await readFile(file, "utf8"));
+  await writeFile(file, JSON.stringify({ ...settings, code: "0".repeat(64) }));
+  await assert.rejects(run(setup, call), /different code/);
+});
+
+test("sets aside a record cut off by a crash and resumes from the complete ones", async () => {
+  const setup = await fixture();
+  await run(setup, fakeModels(["quitter"]).call);
+  const file = path.join(setup.dir, "records.jsonl");
+  await appendFile(file, '{"task":"stack/one","mod');
+
+  const retry = fakeModels();
+  await run(setup, retry.call);
+  assert.equal(retry.calls.length, 4);
+  assert.equal((await readRecords(file)).length, 12);
+  assert.equal(await readFile(`${file}.partial`, "utf8"), '{"task":"stack/one","mod');
 });
 
 test("saves failed calls as errors and retries only those on the next run", async () => {
