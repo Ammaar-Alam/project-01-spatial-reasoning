@@ -354,8 +354,118 @@ test("gemini skips thought parts and keeps the answer text", async () => {
     servedModel: "gemini-3.8-flash",
     servedBy: null,
     responseId: "abc",
+    refusal: null,
     usage: { promptTokenCount: 10 },
   });
+});
+
+const chat = (choice: Record<string, unknown>) =>
+  json({
+    id: "gen-1",
+    object: "chat.completion",
+    created: 0,
+    model: "z-ai/glm-5.3",
+    choices: [choice],
+  });
+
+test("openrouter treats an error inside a 200 response as a failed call", async () => {
+  for (const choice of [
+    {
+      index: 0,
+      finish_reason: "error",
+      error: { code: 502, message: "Provider disconnected" },
+      message: { role: "assistant", content: '{"status":' },
+    },
+    {
+      index: 0,
+      finish_reason: "stop",
+      error: { code: 502, message: "Provider disconnected" },
+      message: { role: "assistant", content: "" },
+    },
+  ]) {
+    fakeFetch(chat(choice));
+    await assert.rejects(
+      callModel({ provider: "openrouter", model: "z-ai/glm-5.3", params: {} }, request),
+      /Provider disconnected/,
+    );
+    mock.restoreAll();
+  }
+
+  fakeFetch(json({ id: "gen-1", object: "chat.completion", created: 0, model: "m", choices: [] }));
+  await assert.rejects(
+    callModel({ provider: "openrouter", model: "z-ai/glm-5.3", params: {} }, request),
+    /no choices/,
+  );
+});
+
+test("keeps refusal text while the answer itself stays empty", async () => {
+  fakeFetch(
+    chat({
+      index: 0,
+      finish_reason: "stop",
+      message: { role: "assistant", content: null, refusal: "I can't help with that." },
+    }),
+  );
+  const routed = await callModel(
+    { provider: "openrouter", model: "z-ai/glm-5.3", params: {} },
+    request,
+  );
+  assert.equal(routed.text, "");
+  assert.equal(routed.refusal, "I can't help with that.");
+  mock.restoreAll();
+
+  fakeFetch(
+    json(
+      openaiResponse("completed", {
+        output: [
+          {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "refusal", refusal: "I won't do that." }],
+          },
+        ],
+      }),
+    ),
+  );
+  const direct = await callModel({ provider: "openai", model: "gpt-6.1-sol", params: {} }, request);
+  assert.equal(direct.text, "");
+  assert.equal(direct.refusal, "I won't do that.");
+  mock.restoreAll();
+
+  fakeFetch(
+    sse([
+      {
+        type: "message_start",
+        message: {
+          id: "msg_2",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [],
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: 12, output_tokens: 0 },
+        },
+      },
+      {
+        type: "message_delta",
+        delta: {
+          stop_reason: "refusal",
+          stop_sequence: null,
+          stop_details: { type: "refusal", category: "cyber", explanation: "Declined." },
+        },
+        usage: { output_tokens: 0 },
+      },
+      { type: "message_stop" },
+    ]),
+  );
+  const claude = await callModel(
+    { provider: "anthropic", model: "claude-opus-5-5", params: { max_tokens: 100 } },
+    request,
+  );
+  assert.equal(claude.text, "");
+  assert.equal(claude.stopReason, "refusal");
+  assert.equal(claude.refusal, "cyber: Declined.");
 });
 
 test("gemini reports http errors with the status", async () => {

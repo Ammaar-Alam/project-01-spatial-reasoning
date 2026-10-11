@@ -119,9 +119,9 @@ Each attempt is exactly one request, with no retries, repairs or feedback. OpenA
 A run writes two files:
 
 - `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task's request, the start time and the commit the code was run from.
-- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, and token usage and cost as the provider reported them.
+- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, any refusal text, and token usage and cost as the provider reported them. A refusal is graded as a failure but its text is kept.
 
-A request that fails before producing an answer, such as a network error or provider outage, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again. A run can only be resumed with the same settings, task files and answer keys, so changing any of them needs a new run name.
+A request that fails before producing an answer, such as a network error, a provider outage, or an upstream error OpenRouter reports inside a normal response, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again, and its latency still counts from when it was first sent. A run can only be resumed with the same settings and unchanged task files, so editing either needs a new run name.
 
 [docs/architecture.md](docs/architecture.md) has diagrams of the data model, the grading flow and a run, plus every failure code.
 

@@ -64,10 +64,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     system: SYSTEM_PROMPT,
     models,
     tasks: Object.fromEntries(
-      prepared.map(({ task, request }) => [
-        task.id,
-        hash({ request, reference: task.reference, alternatives: task.alternatives }),
-      ]),
+      prepared.map(({ task, request }) => [task.id, fingerprint(task, request)]),
     ),
   };
   await openRun(dir, settings);
@@ -80,8 +77,11 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
       Object.entries(models).flatMap(([model, config]) => {
         const last = latest.get(key(task.id, model, attempt));
         if (last?.status === "graded") return [];
-        const responseId = last && "responseId" in last ? last.responseId : undefined;
-        return [{ task, request, model, config, attempt, responseId }];
+        const saved =
+          last && "responseId" in last && last.responseId
+            ? { responseId: last.responseId, startedAt: last.startedAt }
+            : undefined;
+        return [{ task, request, model, config, attempt, saved }];
       }),
     ),
   );
@@ -91,21 +91,25 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
   let next = 0;
   const worker = async () => {
     for (let job = jobs[next++]; job; job = jobs[next++]) {
-      const { task, request, model, config, attempt } = job;
-      const startedAt = Date.now();
-      const base = {
+      const { task, request, model, config, attempt, saved } = job;
+      const callStart = Date.now();
+      // a resumed response is timed from when it was first sent
+      let since = saved ? Date.parse(saved.startedAt) : callStart;
+      const base = () => ({
         task: task.id,
         family: task.family,
         parent: task.parent,
         model,
         attempt,
-        startedAt: new Date(startedAt).toISOString(),
-      };
+        startedAt: new Date(since).toISOString(),
+      });
 
-      let responseId = job.responseId;
+      let responseId = saved?.responseId;
       const started = (id: string) => {
+        // a new id means a fresh request replaced the saved one, so its clock starts now
+        if (id !== saved?.responseId) since = callStart;
         responseId = id;
-        save({ ...base, latencyMs: Date.now() - startedAt, status: "started", responseId: id });
+        save({ ...base(), latencyMs: Date.now() - since, status: "started", responseId: id });
       };
 
       // a failed call is saved as an error, a bug in grading stops the run instead
@@ -116,10 +120,10 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
       }
-      const latencyMs = Date.now() - startedAt;
+      const latencyMs = Date.now() - since;
       const record: RunRecord = reply
-        ? { ...base, latencyMs, status: "graded", ...reply, ...grade(task, reply.text) }
-        : { ...base, latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
+        ? { ...base(), latencyMs, status: "graded", ...reply, ...grade(task, reply.text) }
+        : { ...base(), latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
 
       save(record);
       records.push(record);
@@ -190,6 +194,10 @@ const key = (task: string, model: string, attempt: number) =>
   `${task}\u0000${model}\u0000${attempt}`;
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+// every task field except local file paths, plus exactly what the model receives
+const fingerprint = ({ file: _file, images: _images, ...fields }: Task, request: ModelRequest) =>
+  hash({ fields, request });
 
 function commit(): { sha: string; dirty: boolean } | null {
   try {

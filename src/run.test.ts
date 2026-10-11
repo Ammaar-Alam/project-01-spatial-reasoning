@@ -48,6 +48,7 @@ const reply = (text: string): ModelReply => ({
   servedModel: null,
   servedBy: null,
   responseId: null,
+  refusal: null,
   usage: null,
 });
 
@@ -152,6 +153,41 @@ test("refuses to resume a run after its answer key changes", async () => {
     alternatives: [[{ x: 1, y: 0, z: 0 }]],
   }));
   await assert.rejects(run({ ...setup, tasks: rekeyed }, call), /different tasks/);
+  const regrouped = setup.tasks.map((task) => ({ ...task, parent: "stack/other" }));
+  await assert.rejects(run({ ...setup, tasks: regrouped }, call), /different tasks/);
+});
+
+test("times a resumed response from when it was first sent", async () => {
+  const setup = await fixture();
+  const one = { ...setup, tasks: setup.tasks.filter((task) => task.id === "stack/one") };
+  const options = { models: { builder: models.builder as ModelConfig }, attempts: 1 };
+  const lost: Call = async (_config, _request, resume) => {
+    resume.started("resp_9");
+    throw new Error("poll failed");
+  };
+  await run(one, lost, options);
+
+  const file = path.join(setup.dir, "records.jsonl");
+  const [first] = await readRecords(file);
+  const sentAt = new Date(Date.now() - 120_000).toISOString();
+  await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
+
+  await run(one, fakeModels().call, options);
+  const resumed = (await readRecords(file)).at(-1);
+  assert.equal(resumed?.status, "graded");
+  assert.equal(resumed?.startedAt, sentAt);
+  assert.ok((resumed?.latencyMs ?? 0) >= 120_000);
+
+  // a fresh request that replaces a failed one is timed from its own start
+  await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
+  const replaced: Call = async (config, request, resume) => {
+    resume.started("resp_10");
+    return fakeModels().call(config, request, resume);
+  };
+  await run(one, replaced, options);
+  const fresh = (await readRecords(file)).at(-1);
+  assert.notEqual(fresh?.startedAt, sentAt);
+  assert.ok((fresh?.latencyMs ?? Infinity) < 60_000);
 });
 
 test("keeps polling a started response instead of sending the task again", async () => {

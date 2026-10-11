@@ -170,9 +170,11 @@ Every attempt is one generation request. The SDK retry loops are turned off and 
 
 If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened.
 
-An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one. It only sends the task again when the saved response failed, was cancelled, or no longer exists.
+An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists, and that new request is timed from its own start.
 
-`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash of each task's request together with its reference and alternatives. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions or answer keys.
+OpenRouter can return HTTP 200 with an `error` on the choice when the upstream model fails partway. That is treated as a failed call, saved as an error and retried, rather than graded as the model's answer. A refusal, by contrast, is the model's answer: it is graded as a failure and its text is kept in the `refusal` field.
+
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash per task covering every task field except local file paths, plus the exact request. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys or puzzle groupings.
 
 ## Modules
 

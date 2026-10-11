@@ -11,6 +11,8 @@ export type ModelReply = {
   // the upstream host, for routers that pick one
   servedBy: string | null;
   responseId: string | null;
+  // a refusal the provider returned instead of an answer, kept for review and graded as a failure
+  refusal: string | null;
   // token counts and cost exactly as the provider reported them
   usage: unknown;
 };
@@ -82,12 +84,17 @@ async function anthropic(config: ModelConfig, request: ModelRequest, apiKey: str
       ],
     } as Anthropic.MessageStreamParams)
     .finalMessage();
+  const details = message.stop_details;
   return {
     text: message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join(""),
     stopReason: message.stop_reason,
     servedModel: message.model,
     servedBy: null,
     responseId: message.id,
+    refusal:
+      message.stop_reason === "refusal"
+        ? [details?.category, details?.explanation].filter(Boolean).join(": ") || "refused"
+        : null,
     usage: message.usage,
   };
 }
@@ -137,12 +144,19 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
     );
   }
 
+  // output_text skips refusal parts, so they are collected separately
+  const refusals = response.output.flatMap((item) =>
+    item.type === "message"
+      ? item.content.flatMap((part) => (part.type === "refusal" ? [part.refusal] : []))
+      : [],
+  );
   return {
     text: response.output_text,
     stopReason: response.incomplete_details?.reason ?? response.status ?? null,
     servedModel: response.model,
     servedBy: null,
     responseId: response.id,
+    refusal: refusals.length > 0 ? refusals.join("\n") : null,
     usage: response.usage ?? null,
   };
 }
@@ -167,13 +181,21 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
     ],
     stream: false,
   } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
-  const choice = completion.choices[0];
+  // openrouter reports an upstream failure inside a 200 response, which is a failed call, not an answer
+  const choice = completion.choices[0] as
+    | (OpenAI.Chat.ChatCompletion.Choice & { error?: { message?: string } })
+    | undefined;
+  if (!choice) throw new Error(`${completion.id} returned no choices`);
+  if (choice.error || (choice.finish_reason as string) === "error") {
+    throw new Error(`${completion.id}: ${choice.error?.message ?? "upstream error"}`);
+  }
   return {
-    text: choice?.message.content ?? "",
-    stopReason: choice?.finish_reason ?? null,
+    text: choice.message.content ?? "",
+    stopReason: choice.finish_reason,
     servedModel: completion.model,
     servedBy: (completion as { provider?: string }).provider ?? null,
     responseId: completion.id,
+    refusal: choice.message.refusal ?? null,
     usage: completion.usage ?? null,
   };
 }
@@ -233,6 +255,8 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
     servedModel: data.modelVersion ?? null,
     servedBy: null,
     responseId: data.responseId ?? null,
+    // gemini signals a block through finishReason or blockReason, kept in stopReason
+    refusal: null,
     usage: data.usageMetadata ?? null,
   };
 }
