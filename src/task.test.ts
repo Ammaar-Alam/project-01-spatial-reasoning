@@ -92,6 +92,17 @@ test("checks that task images exist and are images", async () => {
   assert.deepEqual(task.images, [path.join(root, "stack/view/front.png")]);
 });
 
+test("loads an image-only task that starts from an empty grid", async () => {
+  const { initial: _, ...imageOnly } = base;
+  const root = await tasksDir({
+    "image/arch-01.json": { ...imageOnly, images: ["arch-01.png"] },
+    "image/arch-01.png": "",
+  });
+  const task = await loadTask(root, path.join(root, "image/arch-01.json"));
+  assert.deepEqual(task.initial, []);
+  assert.deepEqual(await checkTasks(root), { checked: 1, problems: [] });
+});
+
 test("passes tasks whose reference answer passes", async () => {
   const root = await tasksDir({
     "stack/tower-01.json": base,
