@@ -171,6 +171,8 @@ Every attempt is one generation request. The SDK retry loops are turned off and 
 
 If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened. A crash partway through writing a line leaves it cut off, so the next run moves that partial line to `records.jsonl.partial` before reading the file, and the attempt it belonged to is retried.
 
+A run holds `run.lock`, containing its process id, from before it reads `run.json` until it finishes. A second command on the same run name stops with an error, so two processes never send the same attempt. A lock whose process is no longer running, left by a run that was killed, is taken over by the next one.
+
 Newer OpenAI models can write commentary messages before the final answer. Messages marked as commentary are left out of the reply text, so the grader sees only the answer.
 
 An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists. Whether the answer came from the saved response is decided by the response id on the reply, and an answer from a new request is timed from that request alone.
@@ -179,7 +181,7 @@ OpenRouter can return HTTP 200 with an `error` on the choice when the upstream m
 
 When a run starts it copies every task file and image it uses into `results/<name>/tasks/`, in the same layout as `tasks/`, so the copy can be loaded and regraded on its own. Images must sit inside their task's family folder for this to work, which `loadTask` enforces.
 
-`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit.
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit. `run.json` also records the commit and whether anything outside `results/` had uncommitted changes.
 
 ## Modules
 

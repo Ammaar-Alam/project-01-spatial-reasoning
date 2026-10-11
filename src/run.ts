@@ -7,6 +7,7 @@ import {
   mkdir,
   readdir,
   readFile,
+  rm,
   truncate,
   writeFile,
 } from "node:fs/promises";
@@ -78,6 +79,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     ),
     code: await codeVersion(),
   };
+  await using _lock = await lockRun(dir);
   await openRun(dir, settings, tasks);
 
   // a graded attempt is final, anything else is tried again, picking up a saved response id
@@ -147,6 +149,36 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
   return records;
+}
+
+// one invocation per run at a time, so the same attempt is never sent twice
+// released when runEval returns, a killed run's lock is taken over by the next one
+async function lockRun(dir: string): Promise<AsyncDisposable> {
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, "run.lock");
+  try {
+    await writeFile(file, String(process.pid), { flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    const pid = Number(await readFile(file, "utf8"));
+    // a lock without a pid may still be being written, so it counts as held
+    if (!Number.isInteger(pid) || pid <= 0 || isRunning(pid)) {
+      throw new Error(`${dir} is in use by another run, delete ${file} if none is running`);
+    }
+    // ponytail: takeover is not atomic, two runs resumed in the same instant after a kill could both start
+    await writeFile(file, String(process.pid));
+  }
+  return { [Symbol.asyncDispose]: () => rm(file, { force: true }) };
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means the process exists but belongs to another user
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
 }
 
 // creates run.json, or confirms an existing run was started with the same settings
@@ -240,23 +272,30 @@ const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(valu
 const fingerprint = ({ file: _file, images: _images, ...fields }: Task, request: ModelRequest) =>
   hash({ fields, request });
 
+const ROOT = path.resolve(import.meta.dirname, "..");
+
 async function codeVersion(): Promise<string> {
-  const root = path.resolve(import.meta.dirname, "..");
-  const files = (await readdir(path.join(root, "src"), { recursive: true }))
+  const files = (await readdir(path.join(ROOT, "src"), { recursive: true }))
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
     .map((file) => path.join("src", file));
   const sources = [...files, "pnpm-lock.yaml"].sort();
   return hash(
     await Promise.all(
-      sources.map(async (file) => [file, await readFile(path.join(root, file), "utf8")]),
+      sources.map(async (file) => [file, await readFile(path.join(ROOT, file), "utf8")]),
     ),
   );
 }
 
 function commit(): { sha: string; dirty: boolean } | null {
+  const options = { cwd: ROOT, encoding: "utf8" } as const;
   try {
-    const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-    const status = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" });
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], options).trim();
+    // results/ is run output, this run's own snapshot included, so only changes elsewhere count
+    const status = execFileSync(
+      "git",
+      ["status", "--porcelain", "--", ".", ":(exclude)results"],
+      options,
+    );
     return { sha, dirty: status.trim().length > 0 };
   } catch {
     return null;

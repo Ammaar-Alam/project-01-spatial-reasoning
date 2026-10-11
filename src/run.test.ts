@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -119,6 +121,32 @@ test("refuses to resume a run started with different code", async () => {
   const settings = JSON.parse(await readFile(file, "utf8"));
   await writeFile(file, JSON.stringify({ ...settings, code: "0".repeat(64) }));
   await assert.rejects(run(setup, call), /different code/);
+});
+
+test("lets only one invocation work on a run at a time", async () => {
+  const setup = await fixture();
+  const { call, calls } = fakeModels();
+  // slow enough that the first run is still going when the second one starts
+  const slow: Call = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return call(...args);
+  };
+  const outcomes = await Promise.allSettled([run(setup, slow), run(setup, slow)]);
+  assert.deepEqual(outcomes.map((outcome) => outcome.status).sort(), ["fulfilled", "rejected"]);
+  const refused = outcomes.find((outcome) => outcome.status === "rejected");
+  assert.match(String(refused?.reason), /in use by another run/);
+  assert.equal(calls.length, 8);
+  assert.equal(existsSync(path.join(setup.dir, "run.lock")), false);
+});
+
+test("takes over the lock of a run that was killed", async () => {
+  const setup = await fixture();
+  await mkdir(setup.dir, { recursive: true });
+  const { pid } = spawnSync(process.execPath, ["-e", ""]);
+  await writeFile(path.join(setup.dir, "run.lock"), String(pid));
+  const { call, calls } = fakeModels();
+  await run(setup, call);
+  assert.equal(calls.length, 8);
 });
 
 test("sets aside a record cut off by a crash and resumes from the complete ones", async () => {
