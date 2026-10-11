@@ -31,7 +31,7 @@ pnpm install
 Everything about a task lives in one JSON file: the prompt, the starting blocks, the rules, and the answer key. To add a task:
 
 1. Create `tasks/<family>/<name>.json`. A new family is a new folder.
-2. Put any images next to it and list them in `images`.
+2. Put any images in the same family folder, or a subfolder of it, and list them in `images`.
 3. Run `pnpm tasks:check`.
 4. Run `pnpm bench --dry-run --tasks <family>/<name>` to see exactly what a model will receive.
 
@@ -57,7 +57,7 @@ The model sees the prompt, the grid size, the starting blocks, the images and ev
 | `prompt` | yes | The instruction shown to the model |
 | `size` | yes | Grid dimensions. Coordinates run from 0 to size - 1, and y is up |
 | `initial` | no | Blocks present at the start. Defaults to none |
-| `images` | no | PNG, JPEG or WebP files shown to the model, with paths relative to the task file |
+| `images` | no | PNG, JPEG or WebP files shown to the model, inside the family folder, with paths relative to the task file |
 | `constraints` | no | Rules the answer must follow, listed below |
 | `parent` | no | Groups variations of one puzzle. Defaults to the task id |
 | `reference` | yes | The correct answer, in the same format a model uses. Never shown to the model |
@@ -116,10 +116,11 @@ pnpm bench --name pilot --models claude-opus-5-5,glm-5.3 --attempts 3
 
 Each attempt is exactly one request, with no retries, repairs or feedback. OpenAI requests with `"background": true` are polled until they finish, which does not send the task again.
 
-A run writes two files:
+A run writes:
 
-- `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task's request, the start time and the commit the code was run from.
-- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, any refusal text, and token usage and cost as the provider reported them. A refusal is graded as a failure but its text is kept.
+- `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task, the start time and the commit the code was run from.
+- `results/<name>/tasks/` is a copy of every task file and image the run used, in the same layout as `tasks/`, so the inputs and answer keys survive later edits and can be regraded.
+- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, any refusal text, and token usage and cost as the provider reported them. A reply the provider marks as a refusal fails with `refused`, even if its text happens to be a correct answer, and the refusal text is kept.
 
 A request that fails before producing an answer, such as a network error, a provider outage, or an upstream error OpenRouter reports inside a normal response, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again, and its latency still counts from when it was first sent. A run can only be resumed with the same settings and unchanged task files, so editing either needs a new run name.
 

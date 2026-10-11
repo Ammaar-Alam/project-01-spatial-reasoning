@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual, parseArgs } from "node:util";
 import { checkTasks } from "./check-tasks.ts";
-import { type Failure, grade } from "./grade.ts";
+import { type Failure, type Grade, grade } from "./grade.ts";
 import { loadModels, type ModelConfig } from "./models.ts";
 import { buildRequest, type ModelRequest, SYSTEM_PROMPT } from "./prompt.ts";
 import { API_KEYS, callModel, type ModelReply, type Resume } from "./providers.ts";
@@ -67,7 +67,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
       prepared.map(({ task, request }) => [task.id, fingerprint(task, request)]),
     ),
   };
-  await openRun(dir, settings);
+  await openRun(dir, settings, tasks);
 
   // a graded attempt is final, anything else is tried again, picking up a saved response id
   const recordsFile = path.join(dir, "records.jsonl");
@@ -120,9 +120,11 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
       }
+      // an answer from a different response than the saved one came from a fresh request
+      if (reply && saved && reply.responseId !== saved.responseId) since = callStart;
       const latencyMs = Date.now() - since;
       const record: RunRecord = reply
-        ? { ...base(), latencyMs, status: "graded", ...reply, ...grade(task, reply.text) }
+        ? { ...base(), latencyMs, status: "graded", ...reply, ...score(task, reply) }
         : { ...base(), latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
 
       save(record);
@@ -136,7 +138,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
 }
 
 // creates run.json, or confirms an existing run was started with the same settings
-async function openRun(dir: string, settings: Settings): Promise<void> {
+async function openRun(dir: string, settings: Settings, tasks: Task[]): Promise<void> {
   const file = path.join(dir, "run.json");
   if (existsSync(file)) {
     const saved = JSON.parse(await readFile(file, "utf8"));
@@ -151,8 +153,24 @@ async function openRun(dir: string, settings: Settings): Promise<void> {
     return;
   }
   await mkdir(dir, { recursive: true });
+  // copies of the task files and images as run, so later edits never lose the inputs or answer keys
+  for (const task of tasks) {
+    const folder = path.join(dir, "tasks", task.family);
+    for (const source of [task.file, ...task.images]) {
+      const target = path.join(folder, path.relative(path.dirname(task.file), source));
+      await mkdir(path.dirname(target), { recursive: true });
+      await copyFile(source, target);
+    }
+  }
   const run = { ...settings, createdAt: new Date().toISOString(), commit: commit() };
   await writeFile(file, `${JSON.stringify(run, null, 2)}\n`);
+}
+
+// a refusal fails even when its text happens to parse as a correct answer
+function score(task: Task, reply: ModelReply): Grade {
+  if (reply.refusal)
+    return { pass: false, failures: [{ code: "refused", message: reply.refusal }] };
+  return grade(task, reply.text);
 }
 
 export async function readRecords(file: string): Promise<RunRecord[]> {

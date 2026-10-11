@@ -133,6 +133,10 @@ export async function loadTask(root: string, file: string): Promise<Task> {
   const id = `${family}/${name}`;
   const images = result.data.images.map((image) => path.resolve(path.dirname(file), image));
   for (const image of images) {
+    // kept inside the family folder so a task and its images can be copied as one unit
+    if (path.relative(path.dirname(file), image).split(path.sep)[0] === "..") {
+      throw new TaskError(`${relative}: images must be inside tasks/${family}/`);
+    }
     if (!Object.hasOwn(IMAGE_TYPES, path.extname(image).toLowerCase())) {
       throw new TaskError(`${relative}: unsupported image type ${path.basename(image)}`);
     }

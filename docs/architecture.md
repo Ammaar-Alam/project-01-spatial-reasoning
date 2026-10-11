@@ -135,6 +135,7 @@ Moving one block from `(0, 0, 0)` to `(1, 0, 0)` is 1 removal plus 1 addition, s
 | `protected_changed` | A protected cell was filled or emptied |
 | `forbidden_edit` | A removal in an add-only task, or an addition in a remove-only task |
 | `wrong_structure` | The final blocks match neither the reference nor any alternative. The message lists the blocks missing and extra compared with the closest one |
+| `refused` | The provider marked the reply as a refusal. Set by the runner before the text is graded |
 
 ## Runs
 
@@ -170,9 +171,11 @@ Every attempt is one generation request. The SDK retry loops are turned off and 
 
 If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened.
 
-An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists, and that new request is timed from its own start.
+An OpenAI background request is saved with `"status": "started"` and its response id as soon as OpenAI accepts it. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists. Whether the answer came from the saved response is decided by the response id on the reply, and an answer from a new request is timed from that request alone.
 
-OpenRouter can return HTTP 200 with an `error` on the choice when the upstream model fails partway. That is treated as a failed call, saved as an error and retried, rather than graded as the model's answer. A refusal, by contrast, is the model's answer: it is graded as a failure and its text is kept in the `refusal` field.
+OpenRouter can return HTTP 200 with an `error` on the choice when the upstream model fails partway. That is treated as a failed call, saved as an error and retried, rather than graded as the model's answer. A refusal, by contrast, is the model's answer: it fails with `refused` before the text is graded, even if the text would pass, and the refusal is kept in the `refusal` field.
+
+When a run starts it copies every task file and image it uses into `results/<name>/tasks/`, in the same layout as `tasks/`, so the copy can be loaded and regraded on its own. Images must sit inside their task's family folder for this to work, which `loadTask` enforces.
 
 `run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash per task covering every task field except local file paths, plus the exact request. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys or puzzle groupings.
 

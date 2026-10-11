@@ -83,6 +83,11 @@ test("rejects invalid task files", async () => {
 test("checks that task images exist and are images", async () => {
   await loadError("stack/no-image.json", { ...base, images: ["front.png"] });
   await loadError("stack/text.json", { ...base, images: ["notes.txt"] }, { "stack/notes.txt": "" });
+  await loadError(
+    "stack/outside.json",
+    { ...base, images: ["../shared/front.png"] },
+    { "shared/front.png": "" },
+  );
 
   const root = await tasksDir({
     "stack/view.json": { ...base, images: ["view/front.png"] },

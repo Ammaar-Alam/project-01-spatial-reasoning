@@ -29,7 +29,7 @@ async function fixture(extra: Record<string, unknown> = {}) {
   for (const [name, task] of Object.entries(files)) {
     const file = path.join(root, "tasks", name);
     await mkdir(path.dirname(file), { recursive: true });
-    await writeFile(file, JSON.stringify(task));
+    await writeFile(file, typeof task === "string" ? task : JSON.stringify(task));
   }
   return {
     dir: path.join(root, "results", "test-run"),
@@ -172,22 +172,63 @@ test("times a resumed response from when it was first sent", async () => {
   const sentAt = new Date(Date.now() - 120_000).toISOString();
   await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
 
-  await run(one, fakeModels().call, options);
+  // the saved response finishes, so the answer carries its id
+  const answeredBy =
+    (id: string, announce: boolean): Call =>
+    async (config, request, resume) => {
+      if (announce) resume.started(id);
+      return { ...(await fakeModels().call(config, request, resume)), responseId: id };
+    };
+  await run(one, answeredBy("resp_9", false), options);
   const resumed = (await readRecords(file)).at(-1);
   assert.equal(resumed?.status, "graded");
   assert.equal(resumed?.startedAt, sentAt);
   assert.ok((resumed?.latencyMs ?? 0) >= 120_000);
 
-  // a fresh request that replaces a failed one is timed from its own start
-  await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
-  const replaced: Call = async (config, request, resume) => {
-    resume.started("resp_10");
-    return fakeModels().call(config, request, resume);
-  };
-  await run(one, replaced, options);
-  const fresh = (await readRecords(file)).at(-1);
-  assert.notEqual(fresh?.startedAt, sentAt);
-  assert.ok((fresh?.latencyMs ?? Infinity) < 60_000);
+  // a fresh request that replaces a failed one is timed from its own start,
+  // whether it is still running when created or finishes right away
+  for (const announce of [true, false]) {
+    await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
+    await run(one, answeredBy("resp_10", announce), options);
+    const fresh = (await readRecords(file)).at(-1);
+    assert.notEqual(fresh?.startedAt, sentAt);
+    assert.ok((fresh?.latencyMs ?? Infinity) < 60_000);
+  }
+});
+
+test("fails a reply the provider marked as a refusal even if its text is a correct answer", async () => {
+  const setup = await fixture();
+  const refusing: Call = async (config, request, resume) => ({
+    ...(await fakeModels().call(config, request, resume)),
+    refusal: "I can't help with that.",
+  });
+  await run(setup, refusing, { models: { builder: models.builder as ModelConfig }, attempts: 1 });
+  const saved = await readRecords(path.join(setup.dir, "records.jsonl"));
+  const record = saved.find((r) => r.task === "stack/one");
+  assert.equal(record?.status === "graded" && record.pass, false);
+  assert.deepEqual(record?.status === "graded" && record.failures, [
+    { code: "refused", message: "I can't help with that." },
+  ]);
+});
+
+test("keeps a copy of every task file and image a run used", async () => {
+  const setup = await fixture({
+    "image/arch.json": { ...solvable, images: ["arch/front.png"] },
+    "image/arch/front.png": "png-bytes",
+  });
+  await run(setup, fakeModels().call, { attempts: 1 });
+
+  const copy = path.join(setup.dir, "tasks");
+  assert.equal(await readFile(path.join(copy, "image/arch/front.png"), "utf8"), "png-bytes");
+  const original = path.join(path.dirname(setup.dir), "..", "tasks", "stack/one.json");
+  await writeFile(original, JSON.stringify({ ...solvable, prompt: "Edited later." }));
+
+  const copied = await loadTasks(copy);
+  assert.deepEqual(
+    copied.map((task) => task.id),
+    ["image/arch", "stack/one", "stack/two"],
+  );
+  assert.equal(copied.find((task) => task.id === "stack/one")?.prompt, solvable.prompt);
 });
 
 test("keeps polling a started response instead of sending the task again", async () => {
