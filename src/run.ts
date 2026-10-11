@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, statSync, truncateSync } from "node:fs";
 import {
   appendFile,
   copyFile,
@@ -100,60 +100,72 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     ),
   );
 
-  const save = (record: RunRecord) => appendFileSync(recordsFile, `${JSON.stringify(record)}\n`);
+  // the run lock makes this process the only writer, so the file is exactly as long as written
+  let written = existsSync(recordsFile) ? statSync(recordsFile).size : 0;
+  const save = (record: RunRecord) => {
+    const line = `${JSON.stringify(record)}\n`;
+    try {
+      appendFileSync(recordsFile, line);
+    } catch (error) {
+      // a failed append can leave part of a line, which the next record would be written onto
+      truncateSync(recordsFile, written);
+      throw error;
+    }
+    written += Buffer.byteLength(line);
+  };
   const records: RunRecord[] = [];
   let next = 0;
   const worker = async () => {
-    for (let job = jobs[next++]; job; job = jobs[next++]) {
-      const { task, request, model, config, attempt, saved } = job;
-      const callStart = Date.now();
-      // a resumed response is timed from when it was first sent
-      let since = saved ? Date.parse(saved.startedAt) : callStart;
-      const base = () => ({
-        task: task.id,
-        family: task.family,
-        parent: task.parent,
-        model,
-        attempt,
-        startedAt: new Date(since).toISOString(),
-      });
+    try {
+      for (let job = jobs[next++]; job; job = jobs[next++]) {
+        const { task, request, model, config, attempt, saved } = job;
+        const callStart = Date.now();
+        // a resumed response is timed from when it was first sent
+        let since = saved ? Date.parse(saved.startedAt) : callStart;
+        const base = () => ({
+          task: task.id,
+          family: task.family,
+          parent: task.parent,
+          model,
+          attempt,
+          startedAt: new Date(since).toISOString(),
+        });
 
-      let responseId = saved?.responseId;
-      const started = (id: string) => {
-        // a new id means a fresh request replaced the saved one, so its clock starts now
-        if (id !== saved?.responseId) since = callStart;
-        responseId = id;
-        save({ ...base(), latencyMs: Date.now() - since, status: "started", responseId: id });
-      };
+        let responseId = saved?.responseId;
+        const started = (id: string) => {
+          // a new id means a fresh request replaced the saved one, so its clock starts now
+          if (id !== saved?.responseId) since = callStart;
+          responseId = id;
+          save({ ...base(), latencyMs: Date.now() - since, status: "started", responseId: id });
+        };
 
-      // a failed call is saved as an error, a bug in grading stops the run instead
-      let reply: ModelReply | undefined;
-      let error = "";
-      try {
-        reply = await call(config, request, { responseId, started });
-      } catch (cause) {
-        error = cause instanceof Error ? cause.message : String(cause);
+        // a failed call is saved as an error, a bug in grading stops the run instead
+        let reply: ModelReply | undefined;
+        let error = "";
+        try {
+          reply = await call(config, request, { responseId, started });
+        } catch (cause) {
+          error = cause instanceof Error ? cause.message : String(cause);
+        }
+        // an answer from a different response than the saved one came from a fresh request
+        if (reply && saved && reply.responseId !== saved.responseId) since = callStart;
+        const latencyMs = Date.now() - since;
+        const record: RunRecord = reply
+          ? { ...base(), latencyMs, status: "graded", ...reply, ...score(task, reply) }
+          : { ...base(), latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
+
+        save(record);
+        records.push(record);
+        const outcome = record.status === "graded" ? (record.pass ? "pass" : "fail") : "error";
+        log(`[${records.length}/${jobs.length}] ${model} ${task.id} #${attempt} ${outcome}`);
       }
-      // an answer from a different response than the saved one came from a fresh request
-      if (reply && saved && reply.responseId !== saved.responseId) since = callStart;
-      const latencyMs = Date.now() - since;
-      const record: RunRecord = reply
-        ? { ...base(), latencyMs, status: "graded", ...reply, ...score(task, reply) }
-        : { ...base(), latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
-
-      save(record);
-      records.push(record);
-      const outcome = record.status === "graded" ? (record.pass ? "pass" : "fail") : "error";
-      log(`[${records.length}/${jobs.length}] ${model} ${task.id} #${attempt} ${outcome}`);
-    }
-  };
-  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, () =>
-    worker().catch((error: unknown) => {
+    } catch (error) {
       // no new work after a failure, requests already sent still finish and are saved
       next = jobs.length;
       throw error;
-    }),
-  );
+    }
+  };
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, worker);
   // waits for every worker, not just the first failure, so the lock outlives every request
   for (const result of await Promise.allSettled(workers)) {
     if (result.status === "rejected") throw result.reason;

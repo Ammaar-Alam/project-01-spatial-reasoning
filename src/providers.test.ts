@@ -10,6 +10,7 @@ type Sent = { url: string; headers: Headers; body: Record<string, unknown>; disp
 function fakeFetch(...responses: Response[]): Sent[] {
   const sent: Sent[] = [];
   mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    init?.signal?.throwIfAborted();
     const request = new Request(input, init);
     const text = await request.text();
     sent.push({
@@ -274,6 +275,40 @@ test("openai sends the task again only when the saved response failed or is gone
   }
 });
 
+test("openai keeps a policy block as the model's answer instead of sending the task again", async () => {
+  const blocked = (code: string) =>
+    json(openaiResponse("failed", { error: { code, message: "Safety systems blocked this." } }));
+  const config = { provider: "openai" as const, model: "gpt-6.1-sol", params: {} };
+  const cases = [
+    // a fresh request that fails, a saved one that already failed, and a block before it starts
+    { responses: [blocked("image_content_policy_violation")], resume: undefined },
+    { responses: [blocked("bio_policy")], resume: { responseId: "resp_1", started: () => {} } },
+    {
+      responses: [
+        json(
+          {
+            error: {
+              type: "invalid_request_error",
+              code: "misalignment_policy_violation",
+              message: "Safety systems blocked this.",
+            },
+          },
+          403,
+        ),
+      ],
+      resume: undefined,
+    },
+  ];
+  for (const { responses, resume } of cases) {
+    const sent = fakeFetch(...responses);
+    const reply = await callModel(config, request, resume);
+    assert.equal(sent.length, 1);
+    assert.equal(reply.text, "");
+    assert.match(reply.refusal ?? "", /Safety systems blocked this/);
+    mock.restoreAll();
+  }
+});
+
 test("openai reports a failed response as an error", async () => {
   fakeFetch(json(openaiResponse("failed", { error: { code: "server_error", message: "boom" } })));
   await assert.rejects(
@@ -529,6 +564,23 @@ test("gemini reports http errors with the status", async () => {
     callModel({ provider: "gemini", model: "gemini-3.8-flash", params: {} }, request),
     /Gemini 403/,
   );
+});
+
+test("gives up on a request once the deadline passes, even while a reply is streaming", async () => {
+  // stands in for the deadline having already passed
+  mock.method(AbortSignal, "timeout", () => AbortSignal.abort(new Error("deadline passed")));
+  const configs = [
+    { provider: "anthropic", model: "claude-opus-5-5", params: { max_tokens: 100 } },
+    { provider: "openai", model: "gpt-6.1-sol", params: {} },
+    { provider: "openrouter", model: "z-ai/glm-5.3", params: {} },
+    { provider: "gemini", model: "gemini-3.8-flash", params: {} },
+  ] as const;
+  for (const config of configs) {
+    fakeFetch(json({}));
+    await assert.rejects(callModel({ ...config }, request), /aborted|deadline passed/);
+    mock.restoreAll();
+    mock.method(AbortSignal, "timeout", () => AbortSignal.abort(new Error("deadline passed")));
+  }
 });
 
 test("refuses to call a provider without its api key", async () => {

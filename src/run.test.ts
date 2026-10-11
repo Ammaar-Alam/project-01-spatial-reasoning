@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import type { ModelConfig } from "./models.ts";
 import type { ModelReply } from "./providers.ts";
 import { type Call, type RunOptions, readRecords, runEval, selectTasks, summarize } from "./run.ts";
@@ -170,6 +171,31 @@ test("takes over the lock of a run that was killed", async () => {
   const { call, calls } = fakeModels();
   await run(setup, call);
   assert.equal(calls.length, 8);
+});
+
+test("removes a partly written record before the next one is saved", async () => {
+  const setup = await fixture();
+  const append = fs.appendFileSync;
+  let appends = 0;
+  // the disk fills up halfway through the first record
+  mock.method(fs, "appendFileSync", (...args: Parameters<typeof append>) => {
+    if (++appends > 1) return append(...args);
+    append(args[0], String(args[1]).slice(0, 10));
+    throw new Error("ENOSPC: no space left on device");
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(run(setup, fakeModels().call), /ENOSPC/);
+  } finally {
+    mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+
+  const file = path.join(setup.dir, "records.jsonl");
+  assert.equal((await readRecords(file)).length, 2);
+  const retry = fakeModels();
+  await run(setup, retry.call);
+  assert.equal(retry.calls.length, 6);
 });
 
 test("sets aside a record cut off by a crash and resumes from the complete ones", async () => {

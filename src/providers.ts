@@ -27,13 +27,14 @@ export const API_KEYS: Record<Provider, string> = {
   openrouter: "OPENROUTER_API_KEY",
 };
 
-const TIMEOUT_MS = 30 * 60 * 1000;
+// a request is given up after this long, whether it is waiting, streaming or being polled
+// generous so a long generation is never cut off and then paid for again
+const DEADLINE_MS = 3 * 60 * 60 * 1000;
 // node's fetch gives up after 5 minutes without a byte, and a long generation can stay silent longer
-const dispatcher = new Agent({ headersTimeout: TIMEOUT_MS, bodyTimeout: TIMEOUT_MS });
+const dispatcher = new Agent({ headersTimeout: DEADLINE_MS, bodyTimeout: DEADLINE_MS });
 // sdk retries are off so one attempt is always exactly one generation request
-const CLIENT = { maxRetries: 0, timeout: TIMEOUT_MS, fetchOptions: { dispatcher } };
+const CLIENT = { maxRetries: 0, timeout: DEADLINE_MS, fetchOptions: { dispatcher } };
 const POLL_INTERVAL_MS = 15_000;
-const POLL_LIMIT_MS = 3 * 60 * 60 * 1000;
 
 // lets a long background request outlive a failed poll or a crash
 // started hands over the provider's id right away, a later run passes it back to keep polling
@@ -66,27 +67,30 @@ const dataUrl = (image: ModelRequest["images"][number]) =>
 async function anthropic(config: ModelConfig, request: ModelRequest, apiKey: string) {
   const client = new Anthropic({ apiKey, ...CLIENT });
   const message = await client.messages
-    .stream({
-      ...config.params,
-      model: config.model,
-      system: request.system,
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...request.images.map((image) => ({
-              type: "image" as const,
-              source: {
-                type: "base64" as const,
-                media_type: image.mediaType as "image/png",
-                data: image.data,
-              },
-            })),
-            { type: "text" as const, text: request.text },
-          ],
-        },
-      ],
-    } as Anthropic.MessageStreamParams)
+    .stream(
+      {
+        ...config.params,
+        model: config.model,
+        system: request.system,
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...request.images.map((image) => ({
+                type: "image" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: image.mediaType as "image/png",
+                  data: image.data,
+                },
+              })),
+              { type: "text" as const, text: request.text },
+            ],
+          },
+        ],
+      } as Anthropic.MessageStreamParams,
+      { signal: AbortSignal.timeout(DEADLINE_MS) },
+    )
     .finalMessage();
   const details = message.stop_details;
   return {
@@ -108,39 +112,61 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
   // checking on an existing response is not a new attempt, so this client may retry
   const poller = new OpenAI({ apiKey });
 
-  // a saved response is picked up again unless it failed or no longer exists
+  const body = {
+    ...config.params,
+    model: config.model,
+    instructions: request.system,
+    input: [
+      {
+        role: "user",
+        content: [
+          ...request.images.map((image) => ({
+            type: "input_image" as const,
+            image_url: dataUrl(image),
+            detail: "high" as const,
+          })),
+          { type: "input_text" as const, text: request.text },
+        ],
+      },
+    ],
+    stream: false,
+  } as OpenAI.Responses.ResponseCreateParamsNonStreaming;
+
+  // a saved response is picked up again unless it is gone or failed in a way a new request could fix
   let response = resume.responseId ? await retrieve(poller, resume.responseId) : undefined;
-  if (!response || response.status === "failed" || response.status === "cancelled") {
-    response = await client.responses.create({
-      ...config.params,
-      model: config.model,
-      instructions: request.system,
-      input: [
-        {
-          role: "user",
-          content: [
-            ...request.images.map((image) => ({
-              type: "input_image" as const,
-              image_url: dataUrl(image),
-              detail: "high" as const,
-            })),
-            { type: "input_text" as const, text: request.text },
-          ],
-        },
-      ],
-      stream: false,
-    } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
+  if (
+    !response ||
+    response.status === "cancelled" ||
+    (response.status === "failed" && !isOpenAIPolicyBlock(response.error?.code))
+  ) {
+    try {
+      response = await client.responses.create(body, { signal: AbortSignal.timeout(DEADLINE_MS) });
+    } catch (error) {
+      // a policy block before generation starts comes back as an http 403
+      if (error instanceof OpenAI.APIError && isOpenAIPolicyBlock(error.code)) {
+        return blocked(error.code, error.message);
+      }
+      throw error;
+    }
     if (response.status === "queued" || response.status === "in_progress") {
       resume.started(response.id);
     }
   }
 
   // with "background": true the request returns right away and is polled until it finishes
-  const deadline = Date.now() + POLL_LIMIT_MS;
+  const deadline = Date.now() + DEADLINE_MS;
   while (response.status === "queued" || response.status === "in_progress") {
     if (Date.now() > deadline) throw new Error(`${response.id} still ${response.status}`);
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     response = await poller.responses.retrieve(response.id);
+  }
+  const { error } = response;
+  if (response.status === "failed" && error && isOpenAIPolicyBlock(error.code)) {
+    return blocked(error.code, error.message, {
+      servedModel: response.model,
+      responseId: response.id,
+      usage: response.usage ?? null,
+    });
   }
   if (response.status === "failed" || response.status === "cancelled") {
     throw new Error(
@@ -189,7 +215,9 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
   } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
   let completion: OpenAI.Chat.ChatCompletion & { provider?: string; error?: OpenRouterError };
   try {
-    completion = await client.chat.completions.create(body);
+    completion = await client.chat.completions.create(body, {
+      signal: AbortSignal.timeout(DEADLINE_MS),
+    });
   } catch (error) {
     // a policy block usually comes back as an http 403
     const blocked = error instanceof OpenAI.APIError ? policyRefusal(error.error, null) : undefined;
@@ -223,21 +251,32 @@ type OpenRouterError = {
   metadata?: { error_type?: string; provider_name?: string };
 };
 
-// the model or a filter around it declined, which is its answer and the same on every retry
 function policyRefusal(error: unknown, responseId: string | null): ModelReply | undefined {
   const { message, metadata } = (error ?? {}) as OpenRouterError;
   const type = metadata?.error_type;
   if (type !== "refusal" && type !== "content_policy_violation") return undefined;
-  return {
-    text: "",
-    stopReason: type,
-    servedModel: null,
-    servedBy: metadata?.provider_name ?? null,
-    responseId,
-    refusal: message || "refused",
-    usage: null,
-  };
+  return blocked(type, message, { servedBy: metadata?.provider_name ?? null, responseId });
 }
+
+// openai names every safety block with "policy", as in bio_policy or image_content_policy_violation
+const isOpenAIPolicyBlock = (code: unknown): code is string =>
+  typeof code === "string" && code.includes("policy");
+
+// the model or a filter around it declined, which is its answer and the same on every retry
+const blocked = (
+  type: string,
+  message: string | undefined,
+  reply: Partial<ModelReply> = {},
+): ModelReply => ({
+  text: "",
+  stopReason: type,
+  servedModel: null,
+  servedBy: null,
+  responseId: null,
+  refusal: message || type,
+  usage: null,
+  ...reply,
+});
 
 async function retrieve(poller: OpenAI, id: string) {
   try {
@@ -265,7 +304,7 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(DEADLINE_MS),
     dispatcher,
     body: JSON.stringify({
       ...config.params,
