@@ -24,6 +24,7 @@ pnpm install
 | `pnpm test` | Runs the unit tests |
 | `pnpm check` | Lint, typecheck, tests and task check, the same as CI |
 | `pnpm format` | Formats and fixes lint issues in place |
+| `pnpm bench` | Sends tasks to models and grades their answers, see [Running models](#running-models) |
 
 ## Tasks
 
@@ -32,6 +33,7 @@ Everything about a task lives in one JSON file: the prompt, the starting blocks,
 1. Create `tasks/<family>/<name>.json`. A new family is a new folder.
 2. Put any images next to it and list them in `images`.
 3. Run `pnpm tasks:check`.
+4. Run `pnpm bench --dry-run --tasks <family>/<name>` to see exactly what a model will receive.
 
 No other file or code changes. The path gives the task its id, for example `tasks/transform/mirror-l-01.json` is `transform/mirror-l-01`. Names use lowercase letters, digits and hyphens.
 
@@ -47,6 +49,8 @@ No other file or code changes. The path gives the task its id, for example `task
   }
 }
 ```
+
+The model sees the prompt, the grid size, the starting blocks, the images and every rule in `constraints`, so the prompt only needs to state the goal.
 
 | Field | Required | Meaning |
 | --- | --- | --- |
@@ -82,7 +86,44 @@ One surrounding ` ```json ` fence is allowed. Any other text, a second JSON obje
 
 An answer passes when it follows every constraint and its blocks exactly match the reference or one of the alternatives, in any order. On a task whose reference is `impossible`, only an `impossible` answer passes. The reason is kept for review but not scored.
 
-[docs/architecture.md](docs/architecture.md) has diagrams of the data model and the grading flow, plus every failure code.
+## Running models
+
+Copy `.env.example` to `.env` and fill in the keys for the providers you use. Models are listed in `models.json`:
+
+```json
+"claude-opus-5-5": {
+  "provider": "anthropic",
+  "model": "claude-opus-5-5",
+  "params": { "max_tokens": 128000, "output_config": { "effort": "max" } }
+}
+```
+
+`provider` is `anthropic`, `openai`, `gemini` or `openrouter`, and `model` is the id that provider's API expects. `params` is added to the request as written, so output limits and reasoning settings live here. Adding a model is one new entry.
+
+```sh
+pnpm bench --dry-run --tasks transform
+pnpm bench --name pilot --models claude-opus-5-5,glm-5.3 --attempts 3
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `--name` | Run name. Results go to `results/<name>/` |
+| `--models` | Comma-separated names from `models.json` |
+| `--tasks` | Comma-separated families or task ids. Defaults to every task |
+| `--attempts` | Independent attempts per task and model. Defaults to 1 |
+| `--concurrency` | Requests in flight at once. Defaults to 4 |
+| `--dry-run` | Prints what each model would receive and calls nothing |
+
+Each attempt is exactly one request, with no retries, repairs or feedback. OpenAI requests with `"background": true` are polled until they finish, which does not send the task again.
+
+A run writes two files:
+
+- `results/<name>/run.json` holds the attempt count, system prompt, model settings, a hash of every task's request, the start time and the commit the code was run from.
+- `results/<name>/records.jsonl` gets one line per attempt as soon as it finishes: task, model, attempt number, timing, the raw reply, pass or fail with failure codes, the stop reason, and token usage and cost as the provider reported them.
+
+A request that fails before producing an answer, such as a network error or provider outage, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. A run can only be resumed with the same settings and task files, so changing either needs a new run name.
+
+[docs/architecture.md](docs/architecture.md) has diagrams of the data model, the grading flow and a run, plus every failure code.
 
 ## License
 

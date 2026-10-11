@@ -1,6 +1,6 @@
 # Architecture
 
-This page describes how tasks are stored, how a model's answer is graded, and how the source modules depend on each other.
+This page describes how tasks are stored, how models are run on them, how answers are graded, and how the source modules depend on each other.
 
 ## Overview
 
@@ -8,14 +8,18 @@ This page describes how tasks are stored, how a model's answer is graded, and ho
 flowchart LR
   file["tasks/family/name.json"] --> load["loadTask<br/>schema, grid bounds, images"]
   load --> task["Task"]
-  task --> grade["grade"]
-  reply["Model reply<br/>(raw text)"] --> grade
-  grade --> result["Grade<br/>pass, failures"]
-  task --> check["check-tasks<br/>grades each task's own reference"]
+  task --> request["buildRequest<br/>goal, grid, start, rules, images"]
+  config["models.json"] --> caller["callModel<br/>Anthropic, OpenAI, Gemini, OpenRouter"]
+  request --> caller
+  caller --> reply["Model reply<br/>(raw text)"]
+  reply --> grade["grade"]
+  task --> grade
+  grade --> records["results/name/records.jsonl"]
+  task --> check["check-tasks<br/>grades each task's own answer key"]
   check --> grade
 ```
 
-A task file is loaded and validated once. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer and alternatives through the same grader, so a task cannot enter the benchmark if its own answer key breaks its rules.
+A task file is loaded and validated once. `buildRequest` turns it into the only thing a model ever receives, and the answer key never leaves the grader. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer and alternatives through the same grader, so a task cannot enter the benchmark if its own answer key breaks its rules.
 
 ## Data model
 
@@ -132,6 +136,40 @@ Moving one block from `(0, 0, 0)` to `(1, 0, 0)` is 1 removal plus 1 addition, s
 | `forbidden_edit` | A removal in an add-only task, or an addition in a remove-only task |
 | `wrong_structure` | The final blocks match neither the reference nor any alternative. The message lists the blocks missing and extra compared with the closest one |
 
+## Runs
+
+```mermaid
+sequenceDiagram
+  participant CLI as pnpm bench
+  participant Run as runEval
+  participant Call as callModel
+  participant API as Provider API
+  participant Grade as grade
+  participant File as records.jsonl
+  CLI->>Run: tasks, models, attempts
+  Run->>Run: build every request, compare with run.json
+  loop every task, model and attempt not graded yet
+    Run->>Call: request
+    Call->>API: one generation request
+    opt OpenAI background request
+      loop until it finishes
+        Call->>API: check status
+      end
+    end
+    API-->>Call: reply
+    Call-->>Run: text, stop reason, usage
+    Run->>Grade: task and text
+    Grade-->>Run: pass, failures
+    Run->>File: append record
+  end
+```
+
+Every attempt is one generation request. The SDK retry loops are turned off and a failed request is never sent again within a run. Checking on an OpenAI background request is allowed because it does not generate anything new.
+
+If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries only the errors, so earlier error lines stay in the file as a record of what happened.
+
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, and a SHA-256 hash of each task's request. A later run with the same name must match all of them, so one run never mixes prompts, settings or task versions.
+
 ## Modules
 
 ```mermaid
@@ -141,6 +179,10 @@ flowchart BT
   task["task.ts<br/>task schema, loading"]
   grade["grade.ts<br/>grading, failure codes"]
   check["check-tasks.ts<br/>CLI"]
+  prompt["prompt.ts<br/>what a model sees"]
+  models["models.ts<br/>models.json schema"]
+  providers["providers.ts<br/>one adapter per API"]
+  run["run.ts<br/>runs, records, CLI"]
   answer --> geometry
   task --> answer
   task --> geometry
@@ -149,6 +191,16 @@ flowchart BT
   grade -. types only .-> task
   check --> grade
   check --> task
+  prompt --> task
+  prompt -. types only .-> geometry
+  providers -. types only .-> models
+  providers -. types only .-> prompt
+  run --> check
+  run --> grade
+  run --> models
+  run --> prompt
+  run --> providers
+  run --> task
 ```
 
-Arrows point from a module to the module it imports. There are no import cycles. File system access is limited to `findTaskFiles` and `loadTask` in `task.ts`, so parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner.
+Arrows point from a module to the module it imports. There are no import cycles. `task.ts` and `prompt.ts` read task and image files, `providers.ts` makes the network calls, and `run.ts` writes results. Parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner. Provider tests replace `fetch` with recorded responses, so they check the exact request each API receives without calling it.
