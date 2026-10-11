@@ -1,8 +1,5 @@
-import path from "node:path";
 import { grade } from "./grade.ts";
-import { findTaskFiles, loadTask, TaskError } from "./task.ts";
-
-const TASKS_DIR = path.resolve(import.meta.dirname, "../tasks");
+import { findTaskFiles, loadTask, TASKS_DIR, TaskError } from "./task.ts";
 
 // every task must load, and its reference and alternative answers must pass the grader
 export async function checkTasks(root: string): Promise<{ checked: number; problems: string[] }> {

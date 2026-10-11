@@ -12,9 +12,12 @@
     "format": "biome check --write .",
     "typecheck": "tsc",
     "test": "node --test \"src/**/*.test.ts\"",
-    "tasks:check": "node src/check-tasks.ts"
+    "tasks:check": "node src/check-tasks.ts",
+    "bench": "node src/run.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "openai": "7.32.0",
     "zod": "4.6.6"
   },
   "devDependencies": {
