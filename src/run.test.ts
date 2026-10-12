@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs, { existsSync } from "node:fs";
-import fsp, { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import fsp, { appendFile, mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -174,6 +174,19 @@ test("takes over the lock of a run that was killed", async () => {
   assert.equal(existsSync(path.join(setup.dir, `run.lock.${pid}`)), false);
 });
 
+test("takes over a killed run's lock even if a run was killed while taking it over", async () => {
+  const setup = await fixture();
+  await mkdir(setup.dir, { recursive: true });
+  const [owner, claimant] = [0, 1].map(() => spawnSync(process.execPath, ["-e", ""]).pid);
+  await writeFile(path.join(setup.dir, "run.lock"), String(owner));
+  await writeFile(path.join(setup.dir, `run.lock.${owner}`), String(claimant));
+  const { call, calls } = fakeModels();
+  await run(setup, call);
+  assert.equal(calls.length, 8);
+  const left = (await readdir(setup.dir)).filter((name) => name.startsWith("run.lock"));
+  assert.deepEqual(left, []);
+});
+
 test("lets only one of two runs take over a killed run's lock", async () => {
   const setup = await fixture();
   await mkdir(setup.dir, { recursive: true });
@@ -321,6 +334,11 @@ test("times a resumed response from when it was first sent", async () => {
   const answeredBy =
     (id: string, announce: boolean): Call =>
     async (config, request, resume) => {
+      if (id !== resume.responseId) {
+        // the saved response is looked up before a new request replaces it
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        resume.sending();
+      }
       if (announce) resume.started(id);
       return { ...(await fakeModels().call(config, request, resume)), responseId: id };
     };
@@ -330,14 +348,14 @@ test("times a resumed response from when it was first sent", async () => {
   assert.equal(resumed?.startedAt, sentAt);
   assert.ok((resumed?.latencyMs ?? 0) >= 120_000);
 
-  // a fresh request that replaces a failed one is timed from its own start,
+  // a fresh request that replaces a failed one is timed from when it is sent,
   // whether it is still running when created or finishes right away
   for (const announce of [true, false]) {
     await writeFile(file, `${JSON.stringify({ ...first, startedAt: sentAt })}\n`);
     await run(one, answeredBy("resp_10", announce), options);
     const fresh = (await readRecords(file)).at(-1);
     assert.notEqual(fresh?.startedAt, sentAt);
-    assert.ok((fresh?.latencyMs ?? Infinity) < 60_000);
+    assert.ok((fresh?.latencyMs ?? Infinity) < 50);
   }
 });
 

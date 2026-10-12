@@ -119,9 +119,8 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
     try {
       for (let job = jobs[next++]; job; job = jobs[next++]) {
         const { task, request, model, config, attempt, saved } = job;
-        const callStart = Date.now();
-        // a resumed response is timed from when it was first sent
-        let since = saved ? Date.parse(saved.startedAt) : callStart;
+        // a resumed response is timed from when it was first sent, a new one from when it is sent
+        let since = saved ? Date.parse(saved.startedAt) : Date.now();
         const base = () => ({
           task: task.id,
           family: task.family,
@@ -132,9 +131,10 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
         });
 
         let responseId = saved?.responseId;
+        const sending = () => {
+          since = Date.now();
+        };
         const started = (id: string) => {
-          // a new id means a fresh request replaced the saved one, so its clock starts now
-          if (id !== saved?.responseId) since = callStart;
           responseId = id;
           save({ ...base(), latencyMs: Date.now() - since, status: "started", responseId: id });
         };
@@ -143,12 +143,10 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
         let reply: ModelReply | undefined;
         let error = "";
         try {
-          reply = await call(config, request, { responseId, started });
+          reply = await call(config, request, { responseId, sending, started });
         } catch (cause) {
           error = cause instanceof Error ? cause.message : String(cause);
         }
-        // an answer from a different response than the saved one came from a fresh request
-        if (reply && saved && reply.responseId !== saved.responseId) since = callStart;
         const latencyMs = Date.now() - since;
         const record: RunRecord = reply
           ? { ...base(), latencyMs, status: "graded", ...reply, ...score(task, reply) }
@@ -179,19 +177,30 @@ async function lockRun(dir: string): Promise<AsyncDisposable> {
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, "run.lock");
   const inUse = new Error(`${dir} is in use by another run, delete ${file} if none is running`);
-  // a lock without a pid may still be being written, so it counts as held
-  const owner = async () => Number(await readFile(file, "utf8").catch(() => ""));
-  if (!(await create(file))) {
-    const pid = await owner();
+  const read = (lock: string) => readFile(lock, "utf8").catch(() => "");
+  // the pid in a lock or claim whose process is no longer running
+  const deadOwner = async (lock: string) => {
+    const pid = Number(await read(lock));
+    // a file without a pid may still be being written, so it counts as held
     if (!Number.isInteger(pid) || pid <= 0 || isRunning(pid)) throw inUse;
-    // one run at a time may replace a dead pid, and only if no other run replaced it first
-    const claim = `${file}.${pid}`;
-    if (!(await create(claim))) throw inUse;
+    return pid;
+  };
+  if (!(await create(file))) {
+    const pid = await deadOwner(file);
+    // only the run that creates run.lock.<pid> may replace a dead pid, and a claim left by
+    // a run killed partway is passed over the same way, by creating <claim>.<its pid>
+    const passed: string[] = [];
+    let claim = `${file}.${pid}`;
+    while (!(await create(claim))) {
+      passed.push(claim);
+      claim = `${claim}.${await deadOwner(claim)}`;
+    }
     try {
-      if ((await owner()) !== pid) throw inUse;
+      // another run may have replaced it already
+      if ((await read(file)) !== String(pid)) throw inUse;
       await writeFile(file, String(process.pid));
     } finally {
-      await rm(claim, { force: true });
+      for (const done of [claim, ...passed]) await rm(done, { force: true });
     }
   }
   return { [Symbol.asyncDispose]: () => rm(file, { force: true }) };

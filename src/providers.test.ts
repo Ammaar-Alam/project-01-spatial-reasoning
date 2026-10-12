@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
 import { Agent } from "undici";
 import type { ModelRequest } from "./prompt.ts";
-import { callModel } from "./providers.ts";
+import { callModel, type Resume } from "./providers.ts";
+
+const resuming = (hooks: Partial<Resume> = {}): Resume => ({
+  sending() {},
+  started() {},
+  ...hooks,
+});
 
 type Sent = { url: string; headers: Headers; body: Record<string, unknown>; dispatcher: unknown };
 
@@ -210,7 +216,7 @@ test("openai polls a background response without sending it again", async () => 
   const pending = callModel(
     { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
     request,
-    { started: (id) => started.push(id) },
+    resuming({ started: (id) => started.push(id) }),
   );
   while (sent.length < 3) {
     await new Promise((resolve) => setImmediate(resolve));
@@ -246,11 +252,13 @@ const completed = () =>
 
 test("openai picks up a saved response instead of sending the task again", async () => {
   const sent = fakeFetch(completed());
+  let sending = 0;
   const reply = await callModel(
     { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
     request,
-    { responseId: "resp_1", started: () => {} },
+    resuming({ responseId: "resp_1", sending: () => sending++ }),
   );
+  assert.equal(sending, 0);
   assert.deepEqual(
     sent.map((s) => s.url),
     ["https://api.openai.com/v1/responses/resp_1"],
@@ -264,11 +272,14 @@ test("openai sends the task again only when the saved response failed or is gone
     json({ error: { message: "not found", type: "invalid_request_error" } }, 404),
   ]) {
     const sent = fakeFetch(saved, completed());
+    // the new request is timed from when it is sent, after the saved one was looked up
+    const sentBefore: number[] = [];
     const reply = await callModel(
       { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
       request,
-      { responseId: "resp_1", started: () => {} },
+      resuming({ responseId: "resp_1", sending: () => sentBefore.push(sent.length) }),
     );
+    assert.deepEqual(sentBefore, [1]);
     assert.deepEqual(
       sent.map((s) => s.url),
       ["https://api.openai.com/v1/responses/resp_1", "https://api.openai.com/v1/responses"],
@@ -287,10 +298,14 @@ test("openai hands over a replacement's id even if it fails right away", async (
   );
   const started: string[] = [];
   await assert.rejects(
-    callModel({ provider: "openai", model: "gpt-6.1-sol", params: { background: true } }, request, {
-      responseId: "resp_1",
-      started: (id) => started.push(id),
-    }),
+    callModel(
+      { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
+      request,
+      resuming({
+        responseId: "resp_1",
+        started: (id) => started.push(id),
+      }),
+    ),
     /resp_2 failed/,
   );
   assert.deepEqual(started, ["resp_2"]);
@@ -303,7 +318,7 @@ test("openai keeps a policy block as the model's answer instead of sending the t
   const cases = [
     // a fresh request that fails, a saved one that already failed, and a block before it starts
     { responses: [blocked("image_content_policy_violation")], resume: undefined },
-    { responses: [blocked("bio_policy")], resume: { responseId: "resp_1", started: () => {} } },
+    { responses: [blocked("bio_policy")], resume: resuming({ responseId: "resp_1" }) },
     {
       responses: [
         json(
@@ -339,7 +354,7 @@ test("openai stops polling a background response at the deadline", async () => {
   const pending = callModel(
     { provider: "openai", model: "gpt-6.1-sol", params: { background: true } },
     request,
-    { started: () => deadline.abort() },
+    resuming({ started: () => deadline.abort() }),
   );
   pending.catch(() => {});
   for (let i = 0; i < 5; i++) {

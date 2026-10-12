@@ -37,14 +37,19 @@ const CLIENT = { maxRetries: 0, timeout: DEADLINE_MS, fetchOptions: { dispatcher
 const POLL_INTERVAL_MS = 15_000;
 
 // lets a long background request outlive a failed poll or a crash
+// sending marks when a new request goes out, so it is timed from then and not from a lookup before it
 // started hands over the provider's id right away, a later run passes it back to keep polling
-export type Resume = { responseId?: string; started: (responseId: string) => void };
+export type Resume = {
+  responseId?: string;
+  sending: () => void;
+  started: (responseId: string) => void;
+};
 
 // params go first so a config can never replace the model, prompt or images
 export async function callModel(
   config: ModelConfig,
   request: ModelRequest,
-  resume: Resume = { started: () => {} },
+  resume: Resume = { sending: () => {}, started: () => {} },
 ): Promise<ModelReply> {
   const apiKey = process.env[API_KEYS[config.provider]];
   if (!apiKey) throw new Error(`${API_KEYS[config.provider]} is not set`);
@@ -141,6 +146,7 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
     response.status === "cancelled" ||
     (response.status === "failed" && !isOpenAIPolicyBlock(response.error?.code))
   ) {
+    resume.sending();
     try {
       response = await client.responses.create(body, { signal });
     } catch (error) {
