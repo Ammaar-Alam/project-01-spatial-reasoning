@@ -1,12 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, statSync, truncateSync } from "node:fs";
 import {
   appendFile,
   copyFile,
+  link,
   mkdir,
   readdir,
   readFile,
+  rename,
   rm,
   truncate,
   writeFile,
@@ -181,35 +183,42 @@ async function lockRun(dir: string): Promise<AsyncDisposable> {
   // the pid in a lock or claim whose process is no longer running
   const deadOwner = async (lock: string) => {
     const pid = Number(await read(lock));
-    // a file without a pid may still be being written, so it counts as held
+    // anything but a pid was not written by a run, so it is left alone
     if (!Number.isInteger(pid) || pid <= 0 || isRunning(pid)) throw inUse;
     return pid;
   };
-  if (!(await create(file))) {
-    const pid = await deadOwner(file);
-    // only the run that creates run.lock.<pid> may replace a dead pid, and a claim left by
-    // a run killed partway is passed over the same way, by creating <claim>.<its pid>
-    const passed: string[] = [];
-    let claim = `${file}.${pid}`;
-    while (!(await create(claim))) {
-      passed.push(claim);
-      claim = `${claim}.${await deadOwner(claim)}`;
+  // the pid is written once, then linked or renamed into place, so no lock is ever half written
+  const mine = path.join(dir, `run.lock.${randomUUID()}.tmp`);
+  await writeFile(mine, String(process.pid));
+  try {
+    if (!(await create(mine, file))) {
+      const pid = await deadOwner(file);
+      // only the run that creates run.lock.<pid> may replace a dead pid, and a claim left by
+      // a run killed partway is passed over the same way, by creating <claim>.<its pid>
+      const passed: string[] = [];
+      let claim = `${file}.${pid}`;
+      while (!(await create(mine, claim))) {
+        passed.push(claim);
+        claim = `${claim}.${await deadOwner(claim)}`;
+      }
+      try {
+        // another run may have replaced it already
+        if ((await read(file)) !== String(pid)) throw inUse;
+        await rename(mine, file);
+      } finally {
+        for (const done of [claim, ...passed]) await rm(done, { force: true });
+      }
     }
-    try {
-      // another run may have replaced it already
-      if ((await read(file)) !== String(pid)) throw inUse;
-      await writeFile(file, String(process.pid));
-    } finally {
-      for (const done of [claim, ...passed]) await rm(done, { force: true });
-    }
+  } finally {
+    await rm(mine, { force: true });
   }
   return { [Symbol.asyncDispose]: () => rm(file, { force: true }) };
 }
 
 // false if the file exists, only one process can create it
-async function create(file: string): Promise<boolean> {
+async function create(source: string, file: string): Promise<boolean> {
   try {
-    await writeFile(file, String(process.pid), { flag: "wx" });
+    await link(source, file);
     return true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
@@ -260,7 +269,9 @@ async function openRun(dir: string, settings: Settings, tasks: Task[]): Promise<
     }
   }
   const run = { ...settings, createdAt: new Date().toISOString(), commit: commit() };
-  await writeFile(file, `${JSON.stringify(run, null, 2)}\n`);
+  // renamed into place, so a run killed while writing it never leaves half a file
+  await writeFile(`${file}.tmp`, `${JSON.stringify(run, null, 2)}\n`);
+  await rename(`${file}.tmp`, file);
 }
 
 // a refusal fails even when its text happens to parse as a correct answer

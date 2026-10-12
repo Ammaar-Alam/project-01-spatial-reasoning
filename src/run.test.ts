@@ -137,7 +137,8 @@ test("lets only one invocation work on a run at a time", async () => {
   const refused = outcomes.find((outcome) => outcome.status === "rejected");
   assert.match(String(refused?.reason), /in use by another run/);
   assert.equal(calls.length, 8);
-  assert.equal(existsSync(path.join(setup.dir, "run.lock")), false);
+  const left = (await readdir(setup.dir)).filter((name) => name.startsWith("run.lock"));
+  assert.deepEqual(left, []);
 });
 
 test("stops taking new work after a failure but keeps the lock until requests in flight finish", async () => {
@@ -228,6 +229,35 @@ test("does not take over a killed run's lock that another run has already taken"
     syncBuiltinESMExports();
   }
   assert.equal(calls.length, 0);
+});
+
+test("writes the lock and run.json in one step, so a kill never leaves either half written", async () => {
+  const setup = await fixture();
+  await mkdir(setup.dir, { recursive: true });
+  const { pid } = spawnSync(process.execPath, ["-e", ""]);
+  await writeFile(path.join(setup.dir, "run.lock"), String(pid));
+  const write = fsp.writeFile;
+  // a write straight into either file is cut off, as if the process died partway
+  mock.method(fsp, "writeFile", async (...args: Parameters<typeof write>) => {
+    if (["run.lock", "run.json"].includes(path.basename(String(args[0])))) {
+      await write(args[0], "");
+      throw new Error("killed");
+    }
+    return write(...args);
+  });
+  syncBuiltinESMExports();
+  const { call, calls } = fakeModels();
+  try {
+    await run(setup, call);
+  } finally {
+    mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+  assert.equal(calls.length, 8);
+  assert.deepEqual(
+    (await readdir(setup.dir)).filter((name) => name.endsWith(".tmp")),
+    [],
+  );
 });
 
 test("removes a partly written record before the next one is saved", async () => {
