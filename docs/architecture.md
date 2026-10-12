@@ -1,6 +1,6 @@
 # Architecture
 
-This page describes how tasks are stored, how a model's answer is graded, and how the source modules depend on each other.
+This page describes how tasks are stored, how models are run on them, how answers are graded, and how the source modules depend on each other.
 
 ## Overview
 
@@ -8,14 +8,18 @@ This page describes how tasks are stored, how a model's answer is graded, and ho
 flowchart LR
   file["tasks/family/name.json"] --> load["loadTask<br/>schema, grid bounds, images"]
   load --> task["Task"]
-  task --> grade["grade"]
-  reply["Model reply<br/>(raw text)"] --> grade
-  grade --> result["Grade<br/>pass, failures"]
-  task --> check["check-tasks<br/>grades each task's own reference"]
+  task --> request["buildRequest<br/>goal, grid, start, rules, images"]
+  config["models.json"] --> caller["callModel<br/>Anthropic, OpenAI, Gemini, OpenRouter"]
+  request --> caller
+  caller --> reply["Model reply<br/>(raw text)"]
+  reply --> grade["grade"]
+  task --> grade
+  grade --> records["results/name/records.jsonl"]
+  task --> check["check-tasks<br/>grades each task's own answer key"]
   check --> grade
 ```
 
-A task file is loaded and validated once. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer and alternatives through the same grader, so a task cannot enter the benchmark if its own answer key breaks its rules.
+A task file is loaded and validated once. `buildRequest` turns it into the only thing a model ever receives, and the answer key never leaves the grader. Grading takes the loaded task and the model's raw reply text and returns a pass or fail with the list of failures. `pnpm tasks:check` runs every task's reference answer and alternatives through the same grader, so a task cannot enter the benchmark if its own answer key breaks its rules.
 
 ## Data model
 
@@ -131,6 +135,55 @@ Moving one block from `(0, 0, 0)` to `(1, 0, 0)` is 1 removal plus 1 addition, s
 | `protected_changed` | A protected cell was filled or emptied |
 | `forbidden_edit` | A removal in an add-only task, or an addition in a remove-only task |
 | `wrong_structure` | The final blocks match neither the reference nor any alternative. The message lists the blocks missing and extra compared with the closest one |
+| `refused` | The provider marked the reply as a refusal. Set by the runner before the text is graded |
+
+## Runs
+
+```mermaid
+sequenceDiagram
+  participant CLI as pnpm bench
+  participant Run as runEval
+  participant Call as callModel
+  participant API as Provider API
+  participant Grade as grade
+  participant File as records.jsonl
+  CLI->>Run: tasks, models, attempts
+  Run->>Run: build every request, compare with run.json
+  loop every task, model and attempt not graded yet
+    Run->>Call: request
+    Call->>API: one generation request
+    opt OpenAI background request
+      Call-->>Run: response id
+      Run->>File: append started record
+      loop until it finishes
+        Call->>API: check status
+      end
+    end
+    API-->>Call: reply
+    Call-->>Run: text, stop reason, usage
+    Run->>Grade: task and text
+    Grade-->>Run: pass, failures
+    Run->>File: append record
+  end
+```
+
+Every attempt is one generation request. The SDK retry loops are turned off and a failed request is never sent again within a run. OpenRouter's fallback to a second provider is turned off for the same reason, so a failed upstream is a failed call. Checking on an OpenAI background request is allowed because it does not generate anything new.
+
+A request is given up after 3 hours, whether it is waiting for a reply, receiving a stream, or being polled. The limit is long so a slow generation is never cut off and then paid for again. Each call carries an abort signal with that deadline, which also ends a stream that keeps sending without finishing. For an OpenAI background request, one deadline covers picking up a saved response, sending a new one, and every wait and poll. Node's `fetch` would otherwise give up after 5 minutes without receiving a byte, which a long generation that is not streamed can exceed, so all providers send through an undici `Agent` whose header and body timeouts match the deadline.
+
+If the request fails, the attempt is appended with `"status": "error"` instead of being graded. The next run with the same name skips every graded attempt and retries the rest, so earlier lines stay in the file as a record of what happened. A crash partway through writing a line leaves it cut off, so the next run moves that partial line to `records.jsonl.partial` before reading the file, and the attempt it belonged to is retried.
+
+A run holds `run.lock`, containing its process id, from before it reads `run.json` until it finishes. A second command on the same run name stops with an error, so two processes never send the same attempt. A lock whose process is no longer running, left by a run that was killed, is taken over by the next one. To take it over, a run first creates `run.lock.<pid>` for the dead process, which fails if another run already has, and replaces the lock only if it still names that process, so two runs started together never both take it. A claim left by a run killed partway through a takeover is passed over the same way, by creating `<claim>.<its pid>`, and the run that takes over removes every claim it passed. Every lock and claim is written to a temporary file first and then linked or renamed into place, so none is ever seen without its process id. If the run itself fails, for example while saving a record, no new attempts start, and the run waits for requests already sent to finish and be saved before it stops and releases the lock. A save that fails partway cuts `records.jsonl` back to its last complete line first, so the records saved after it are not written onto a partial one.
+
+Newer OpenAI models can write commentary messages before the final answer. Messages marked as commentary are left out of the reply text, so the grader sees only the answer.
+
+An OpenAI response is saved with `"status": "started"` and its id as soon as OpenAI returns it, which for a background request is when it is accepted. That includes a response that has already failed, so the error record names it and is timed from when it was sent. If polling fails or the process stops, the next run polls that same response instead of generating a new one, and its latency still runs from when it was first sent. It only sends the task again when the saved response failed, was cancelled, or no longer exists. A new request is timed from the moment it is sent, after the saved response was looked up, so neither the lookup nor the old response counts toward its latency.
+
+OpenRouter can return HTTP 200 with an `error` on the choice when the upstream model fails partway. That is treated as a failed call, saved as an error and retried, rather than graded as the model's answer. A refusal, by contrast, is the model's answer: it fails with `refused` before the text is graded, even if the text would pass, and the refusal is kept in the `refusal` field. OpenRouter can also report a refusal as an error, either an HTTP 403 or an error body inside a 200, with `error_type` set to `refusal` or `content_policy_violation`. OpenAI reports its safety blocks as an HTTP 403 or a failed response whose error code names a policy, such as `bio_policy` or `image_content_policy_violation`. All of these are refusals too, since sending the task again would get the same answer, and a saved background response that failed this way is not sent again. So is a reply a content filter stopped: OpenAI's `content_filter` incomplete reason, OpenRouter's `content_filter` finish reason, a Gemini prompt with a `blockReason`, and a Gemini reply that stopped with a filter reason such as `SAFETY`, `RECITATION`, `PROHIBITED_CONTENT` or `ESCALATION` (the full list is `GEMINI_FILTERS` in `src/providers.ts`). The provider's reason becomes the refusal text, so a filtered reply never passes on text it was cut short in, and is not counted as invalid JSON.
+
+When a run starts it copies every task file and image it uses into `results/<name>/tasks/`, in the same layout as `tasks/`, so the copy can be loaded and regraded on its own. Images must sit inside their task's family folder for this to work, which `loadTask` enforces. The run then loads the copy and checks each task's hash against the one it is about to send, so a task edited between loading and copying stops the run before anything is sent.
+
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit. `run.json` also records the commit and whether anything outside `results/` had uncommitted changes. It is written to a temporary file and renamed into place, so a run killed while starting never leaves half of it behind.
 
 ## Modules
 
@@ -141,6 +194,10 @@ flowchart BT
   task["task.ts<br/>task schema, loading"]
   grade["grade.ts<br/>grading, failure codes"]
   check["check-tasks.ts<br/>CLI"]
+  prompt["prompt.ts<br/>what a model sees"]
+  models["models.ts<br/>models.json schema"]
+  providers["providers.ts<br/>one adapter per API"]
+  run["run.ts<br/>runs, records, CLI"]
   answer --> geometry
   task --> answer
   task --> geometry
@@ -149,6 +206,16 @@ flowchart BT
   grade -. types only .-> task
   check --> grade
   check --> task
+  prompt --> task
+  prompt -. types only .-> geometry
+  providers -. types only .-> models
+  providers -. types only .-> prompt
+  run --> check
+  run --> grade
+  run --> models
+  run --> prompt
+  run --> providers
+  run --> task
 ```
 
-Arrows point from a module to the module it imports. There are no import cycles. File system access is limited to `findTaskFiles` and `loadTask` in `task.ts`, so parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner.
+Arrows point from a module to the module it imports. There are no import cycles. `task.ts` and `prompt.ts` read task and image files, `providers.ts` makes the network calls, and `run.ts` writes results. Parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner. Provider tests replace `fetch` with recorded responses, so they check the exact request each API receives without calling it.

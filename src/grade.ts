@@ -23,7 +23,9 @@ export type FailureCode =
   | "wrong_block_count"
   | "protected_changed"
   | "forbidden_edit"
-  | "wrong_structure";
+  | "wrong_structure"
+  // the provider marked the reply as a refusal, set by the runner before grading the text
+  | "refused";
 
 export type Failure = { code: FailureCode; message: string };
 

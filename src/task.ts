@@ -78,8 +78,15 @@ export type Task = TaskFile & {
 // a task file that cannot be loaded, as opposed to a bug in this code
 export class TaskError extends Error {}
 
+export const TASKS_DIR = path.resolve(import.meta.dirname, "../tasks");
+
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const IMAGE_TYPES = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+export const IMAGE_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
 
 export async function findTaskFiles(root: string): Promise<string[]> {
   try {
@@ -92,6 +99,11 @@ export async function findTaskFiles(root: string): Promise<string[]> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
+}
+
+export async function loadTasks(root: string): Promise<Task[]> {
+  const files = await findTaskFiles(root);
+  return Promise.all(files.map((file) => loadTask(root, file)));
 }
 
 export async function loadTask(root: string, file: string): Promise<Task> {
@@ -121,7 +133,11 @@ export async function loadTask(root: string, file: string): Promise<Task> {
   const id = `${family}/${name}`;
   const images = result.data.images.map((image) => path.resolve(path.dirname(file), image));
   for (const image of images) {
-    if (!IMAGE_TYPES.has(path.extname(image).toLowerCase())) {
+    // kept inside the family folder so a task and its images can be copied as one unit
+    if (path.relative(path.dirname(file), image).split(path.sep)[0] === "..") {
+      throw new TaskError(`${relative}: images must be inside tasks/${family}/`);
+    }
+    if (!Object.hasOwn(IMAGE_TYPES, path.extname(image).toLowerCase())) {
       throw new TaskError(`${relative}: unsupported image type ${path.basename(image)}`);
     }
     try {
