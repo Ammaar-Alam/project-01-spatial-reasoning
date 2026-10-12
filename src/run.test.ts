@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs, { existsSync } from "node:fs";
-import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import fsp, { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -171,6 +171,50 @@ test("takes over the lock of a run that was killed", async () => {
   const { call, calls } = fakeModels();
   await run(setup, call);
   assert.equal(calls.length, 8);
+  assert.equal(existsSync(path.join(setup.dir, `run.lock.${pid}`)), false);
+});
+
+test("lets only one of two runs take over a killed run's lock", async () => {
+  const setup = await fixture();
+  await mkdir(setup.dir, { recursive: true });
+  const { pid } = spawnSync(process.execPath, ["-e", ""]);
+  await writeFile(path.join(setup.dir, "run.lock"), String(pid));
+  const { call, calls } = fakeModels();
+  const slow: Call = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return call(...args);
+  };
+  const outcomes = await Promise.allSettled([run(setup, slow), run(setup, slow)]);
+  assert.deepEqual(outcomes.map((outcome) => outcome.status).sort(), ["fulfilled", "rejected"]);
+  assert.equal(calls.length, 8);
+});
+
+test("does not take over a killed run's lock that another run has already taken", async () => {
+  const setup = await fixture();
+  await mkdir(setup.dir, { recursive: true });
+  const lock = path.join(setup.dir, "run.lock");
+  const { pid } = spawnSync(process.execPath, ["-e", ""]);
+  await writeFile(lock, String(pid));
+  const read = fsp.readFile;
+  let seen = false;
+  // another run finishes its takeover right after this one reads the dead pid
+  mock.method(fsp, "readFile", async (...args: Parameters<typeof read>) => {
+    const data = await read(...args);
+    if (args[0] === lock && !seen) {
+      seen = true;
+      fs.writeFileSync(lock, String(process.pid));
+    }
+    return data;
+  });
+  syncBuiltinESMExports();
+  const { call, calls } = fakeModels();
+  try {
+    await assert.rejects(run(setup, call), /in use by another run/);
+  } finally {
+    mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+  assert.equal(calls.length, 0);
 });
 
 test("removes a partly written record before the next one is saved", async () => {

@@ -278,6 +278,24 @@ test("openai sends the task again only when the saved response failed or is gone
   }
 });
 
+test("openai hands over a replacement's id even if it fails right away", async () => {
+  fakeFetch(
+    json(openaiResponse("cancelled")),
+    json(
+      openaiResponse("failed", { id: "resp_2", error: { code: "server_error", message: "boom" } }),
+    ),
+  );
+  const started: string[] = [];
+  await assert.rejects(
+    callModel({ provider: "openai", model: "gpt-6.1-sol", params: { background: true } }, request, {
+      responseId: "resp_1",
+      started: (id) => started.push(id),
+    }),
+    /resp_2 failed/,
+  );
+  assert.deepEqual(started, ["resp_2"]);
+});
+
 test("openai keeps a policy block as the model's answer instead of sending the task again", async () => {
   const blocked = (code: string) =>
     json(openaiResponse("failed", { error: { code, message: "Safety systems blocked this." } }));
@@ -376,6 +394,13 @@ test("a reply stopped by a content filter is a refusal, even if its text is an a
         candidates: [{ content: { parts: [{ text: answer }] }, finishReason: "SAFETY" }],
       },
       refusal: "SAFETY",
+    },
+    {
+      config: config("gemini", "gemini-3.8-flash"),
+      response: {
+        candidates: [{ content: { parts: [{ text: answer }] }, finishReason: "ESCALATION" }],
+      },
+      refusal: "ESCALATION",
     },
     {
       config: config("gemini", "gemini-3.8-flash"),

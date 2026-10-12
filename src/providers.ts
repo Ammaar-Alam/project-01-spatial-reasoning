@@ -150,9 +150,8 @@ async function openai(config: ModelConfig, request: ModelRequest, apiKey: string
       }
       throw error;
     }
-    if (response.status === "queued" || response.status === "in_progress") {
-      resume.started(response.id);
-    }
+    // handed over before its status is checked, so even a reply that already failed is named and timed
+    resume.started(response.id);
   }
 
   // with "background": true the request returns right away and is polled until it finishes
@@ -347,4 +346,14 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
   };
 }
 
-const GEMINI_FILTERS = new Set(["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"]);
+const GEMINI_FILTERS = new Set([
+  "SAFETY",
+  "RECITATION",
+  "BLOCKLIST",
+  "PROHIBITED_CONTENT",
+  "SPII",
+  "IMAGE_SAFETY",
+  "IMAGE_PROHIBITED_CONTENT",
+  "IMAGE_RECITATION",
+  "ESCALATION",
+]);

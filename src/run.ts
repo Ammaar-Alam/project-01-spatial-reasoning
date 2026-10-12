@@ -178,19 +178,34 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
 async function lockRun(dir: string): Promise<AsyncDisposable> {
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, "run.lock");
-  try {
-    await writeFile(file, String(process.pid), { flag: "wx" });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    const pid = Number(await readFile(file, "utf8"));
-    // a lock without a pid may still be being written, so it counts as held
-    if (!Number.isInteger(pid) || pid <= 0 || isRunning(pid)) {
-      throw new Error(`${dir} is in use by another run, delete ${file} if none is running`);
+  const inUse = new Error(`${dir} is in use by another run, delete ${file} if none is running`);
+  // a lock without a pid may still be being written, so it counts as held
+  const owner = async () => Number(await readFile(file, "utf8").catch(() => ""));
+  if (!(await create(file))) {
+    const pid = await owner();
+    if (!Number.isInteger(pid) || pid <= 0 || isRunning(pid)) throw inUse;
+    // one run at a time may replace a dead pid, and only if no other run replaced it first
+    const claim = `${file}.${pid}`;
+    if (!(await create(claim))) throw inUse;
+    try {
+      if ((await owner()) !== pid) throw inUse;
+      await writeFile(file, String(process.pid));
+    } finally {
+      await rm(claim, { force: true });
     }
-    // ponytail: takeover is not atomic, two runs resumed in the same instant after a kill could both start
-    await writeFile(file, String(process.pid));
   }
   return { [Symbol.asyncDispose]: () => rm(file, { force: true }) };
+}
+
+// false if the file exists, only one process can create it
+async function create(file: string): Promise<boolean> {
+  try {
+    await writeFile(file, String(process.pid), { flag: "wx" });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+    throw error;
+  }
 }
 
 function isRunning(pid: number): boolean {
