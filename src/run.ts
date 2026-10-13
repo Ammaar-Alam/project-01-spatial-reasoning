@@ -292,14 +292,19 @@ async function setAsideCutOffRecord(file: string): Promise<void> {
   await truncate(file, end);
 }
 
+// complete lines only, a run that is still writing or was killed can leave the last one cut off
 export async function readRecords(file: string): Promise<RunRecord[]> {
   if (!existsSync(file)) return [];
-  const lines = (await readFile(file, "utf8")).split("\n").filter(Boolean);
+  const text = await readFile(file, "utf8");
+  const lines = text
+    .slice(0, text.lastIndexOf("\n") + 1)
+    .split("\n")
+    .filter(Boolean);
   return lines.map((line) => JSON.parse(line) as RunRecord);
 }
 
 // the newest line for each task, model and attempt
-const latestRecords = (records: RunRecord[]) =>
+export const latestRecords = (records: RunRecord[]) =>
   new Map(records.map((record) => [key(record.task, record.model, record.attempt), record]));
 
 // one line per model from the latest record of every attempt
@@ -366,9 +371,9 @@ function commit(): { sha: string; dirty: boolean } | null {
   }
 }
 
-const RESULTS_DIR = path.resolve(import.meta.dirname, "../results");
+export const RESULTS_DIR = path.resolve(import.meta.dirname, "../results");
 const ENV_FILE = path.resolve(import.meta.dirname, "../.env");
-const RUN_NAME = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
+export const RUN_NAME = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 
 function count(value: string, flag: string): number {
   const n = Number(value);

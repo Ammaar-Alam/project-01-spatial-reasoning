@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { checkTasks } from "./check-tasks.ts";
-import { findTaskFiles, loadTask, TaskError } from "./task.ts";
+import { checkTask, checkTasks } from "./check-tasks.ts";
+import { findTaskFiles, loadTask, parseTask, TaskError } from "./task.ts";
 
 // test fixture, not a benchmark task
 const base = {
@@ -151,4 +151,17 @@ test("flags alternative answers that break the task's rules", async () => {
   const { problems } = await checkTasks(root);
   assert.equal(problems.length, 1);
   assert.match(problems[0] ?? "", /^stack\/tower-01: alternative 2 fails\n {2}too_many_edits/);
+});
+
+test("checks a task before it is written, with the same rules as loading", async () => {
+  const root = await tasksDir({});
+  const file = path.join(root, "stack/tower-01.json");
+  const task = await parseTask(root, file, base);
+  assert.equal(task.id, "stack/tower-01");
+  assert.deepEqual(checkTask(task), []);
+
+  const broken = await parseTask(root, file, { ...base, constraints: { maxEdits: 0 } });
+  assert.match(checkTask(broken)[0] ?? "", /^stack\/tower-01: reference answer fails/);
+  await assert.rejects(parseTask(root, path.join(root, "tower.json"), base), TaskError);
+  await assert.rejects(parseTask(root, file, { ...base, prompt: "" }), TaskError);
 });
