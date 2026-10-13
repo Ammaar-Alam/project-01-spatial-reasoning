@@ -1,5 +1,9 @@
 # Spatial Reasoning Benchmark
 
+<p align="center">
+  <img src="docs/header.gif" width="600" alt="A block structure and its mirror image built one block at a time, then turned all the way around">
+</p>
+
 [![CI](https://github.com/Ammaar-Alam/project-01-spatial-reasoning/actions/workflows/ci.yml/badge.svg)](https://github.com/Ammaar-Alam/project-01-spatial-reasoning/actions/workflows/ci.yml)
 
 A COS 597C Project 1 benchmark by Ammaar Alam and Erik Dyer for evaluating spatial reasoning through one-shot construction and manipulation tasks.

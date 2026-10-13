@@ -302,6 +302,13 @@ export function createScene(canvas: HTMLCanvasElement, onHover: (cell: Cell | nu
     show,
     frame,
     snapshot,
+    // orbits the view around the grid's vertical axis, for recording a turntable
+    turn(radians: number) {
+      const offset = camera.position.clone().sub(controls.target);
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), radians);
+      camera.position.copy(controls.target).add(offset);
+      controls.update();
+    },
     // turns block editing on or off, clicks then go to the handler
     edit(handler: ((cell: Cell, mode: Mode) => void) | null) {
       editable = handler !== null;
