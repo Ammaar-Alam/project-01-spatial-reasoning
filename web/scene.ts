@@ -64,6 +64,8 @@ function dispose(group: THREE.Group) {
       if (child.geometry !== BOX) child.geometry.dispose();
       (child.material as THREE.Material).dispose();
     }
+    // frees the per instance buffers, the shared cube geometry stays
+    if (child instanceof THREE.InstancedMesh) child.dispose();
   }
   group.clear();
 }
@@ -255,7 +257,6 @@ export function createScene(canvas: HTMLCanvasElement, onHover: (cell: Cell | nu
     cursor.visible = false;
     onHover(null);
   });
-  canvas.addEventListener("dblclick", frame);
 
   new ResizeObserver(() => {
     const { clientWidth: width, clientHeight: height } = canvas;

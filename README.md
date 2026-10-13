@@ -133,7 +133,7 @@ A request that fails before producing an answer, such as a network error, a prov
 
 `pnpm editor` serves a local page for building tasks and reading results. It listens on 127.0.0.1 only; `--port` picks another port.
 
-**Build** edits one task at a time. Click a block face or the floor to add a block, shift-click a block to remove it, drag to turn the view and double-click to reset it. The blocks sit in layers:
+**Build** edits one task at a time. Click a block face or the floor to add a block, shift-click a block to remove it, drag to turn the view, and Reset view brings the starting view back. The blocks sit in layers:
 
 - **Start** is `initial`, the structure the model is given.
 - **Answer** is the `reference` structure, unless the task is marked impossible.

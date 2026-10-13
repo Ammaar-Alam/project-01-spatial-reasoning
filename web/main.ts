@@ -26,6 +26,7 @@ function open(tab: Tab) {
   tabs[tab].activate();
 }
 
+byId("reset").addEventListener("click", () => scene.frame());
 byId("tab-build").addEventListener("click", () => open("build"));
 byId("tab-results").addEventListener("click", () => open("results"));
 open(location.hash === "#results" ? "results" : "build");

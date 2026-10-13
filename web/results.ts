@@ -167,15 +167,24 @@ export function createResults(scene: Scene) {
     detail.replaceChildren(...parts);
   }
 
+  // bumped on every run opened, so only the latest one fills the page
+  let loading = 0;
+  // the scene is shared with Build, so a late answer only draws while Results is the open tab
+  const current = (mine: number) => mine === loading && !byId("results").hidden;
+
   async function openRun(name: string) {
+    const mine = ++loading;
     selected = null;
     scene.show([]);
     try {
-      run = (await (await request(`/api/runs/${encodeURIComponent(name)}`)).json()) as Run;
+      const loaded = (await (await request(`/api/runs/${encodeURIComponent(name)}`)).json()) as Run;
+      if (!current(mine)) return;
+      run = loaded;
       renderList();
       const first = byId("attempts").querySelector("button");
       if (first) first.click();
     } catch (error) {
+      if (!current(mine)) return;
       run = null;
       byId("attempts").replaceChildren();
       note(`Could not open ${name}: ${message(error)}`);
@@ -188,8 +197,10 @@ export function createResults(scene: Scene) {
   return {
     async activate() {
       scene.edit(null);
+      const mine = ++loading;
       try {
         const names = (await (await request("/api/runs")).json()) as string[];
+        if (!current(mine)) return;
         const keep = names.includes(runs.value) ? runs.value : names.at(-1);
         runs.replaceChildren(...names.map((name) => element("option", { value: name }, name)));
         if (!keep) {
@@ -201,7 +212,7 @@ export function createResults(scene: Scene) {
         if (selected && run) select(selected);
         else await openRun(keep);
       } catch (error) {
-        note(message(error));
+        if (current(mine)) note(message(error));
       }
     },
   };

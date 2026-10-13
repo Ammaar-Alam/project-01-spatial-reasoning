@@ -49,6 +49,8 @@ export function createBuild(scene: Scene) {
   // bumped on every task opened, so a late load or snapshot never lands in another task
   let opened = 0;
 
+  // the scene is shared with Results, so a late load only draws while Build is the open tab
+  const showing = () => !byId("build").hidden;
   const current = (): Cell[] =>
     typeof active === "number" ? (layers.alternatives[active] ?? []) : layers[active];
   const impossible = () =>
@@ -242,6 +244,10 @@ export function createBuild(scene: Scene) {
 
   async function open(task: string | null) {
     const mine = ++opened;
+    // nothing can be edited while the task loads, it would replace those edits
+    const locked = [byId("build"), byId("layers")];
+    for (const part of locked) part.inert = true;
+    scene.edit(null);
     try {
       const file = task
         ? ((await (await request(`/api/tasks/${task}`)).json()) as TaskFile)
@@ -254,12 +260,19 @@ export function createBuild(scene: Scene) {
       byId("new-name").hidden = task !== null;
       dirty = false;
       say("");
-      scene.setGrid(size());
-      scene.frame();
-      draw();
       renderImages();
+      if (showing()) {
+        scene.setGrid(size());
+        scene.frame();
+        draw();
+      }
     } catch (error) {
       say(`Could not open ${task}: ${message(error)}`, true);
+    } finally {
+      if (mine === opened) {
+        for (const part of locked) part.inert = false;
+        if (showing()) scene.edit(edit);
+      }
     }
   }
 
@@ -351,7 +364,8 @@ export function createBuild(scene: Scene) {
   let loaded = false;
   return {
     async activate() {
-      scene.edit(edit);
+      // a task still loading turns editing on when it arrives
+      if (!byId("build").inert) scene.edit(edit);
       if (loaded) {
         scene.setGrid(size());
         draw();
