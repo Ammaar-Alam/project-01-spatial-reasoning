@@ -346,6 +346,8 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 async function codeVersion(): Promise<string> {
   const files = (await readdir(path.join(ROOT, "src"), { recursive: true }))
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
+    // the editor only reads and writes files, so changing it never changes a result
+    .filter((file) => file !== "editor.ts")
     .map((file) => path.join("src", file));
   const sources = [...files, "pnpm-lock.yaml"].sort();
   return hash(

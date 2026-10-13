@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spatial tasks</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/web/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/three/build/three.module.js",
+          "three/addons/": "/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="/web/main.ts"></script>
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Spatial tasks</h1>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-build" aria-selected="true" aria-controls="build">Build</button>
+        <button type="button" role="tab" id="tab-results" aria-selected="false" aria-controls="results">Results</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage">
+        <canvas id="canvas" aria-label="Block view"></canvas>
+        <div class="layers" id="layers"></div>
+        <output class="where" id="where"></output>
+        <p class="hint" id="hint">Click to add, shift-click to remove, drag to turn, double-click to reset</p>
+        <ul class="legend" id="legend" hidden>
+          <li><i class="swatch solid"></i>Correct</li>
+          <li><i class="swatch missing"></i>Missing</li>
+          <li><i class="swatch extra"></i>Extra</li>
+        </ul>
+      </section>
+
+      <aside class="panel" id="build" role="tabpanel" aria-labelledby="tab-build">
+        <label class="field">
+          <span>Task</span>
+          <select id="task-list"></select>
+        </label>
+        <div class="pair" id="new-name">
+          <label class="field">
+            <span>Family</span>
+            <input id="family" placeholder="transform" autocomplete="off" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>Name</span>
+            <input id="name" placeholder="mirror-l-01" autocomplete="off" spellcheck="false" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Prompt</span>
+          <textarea id="prompt" rows="4" placeholder="Mirror the structure across the plane x = 3.5."></textarea>
+        </label>
+
+        <fieldset class="field">
+          <legend>Grid</legend>
+          <div class="triple">
+            <label><span>x</span><input id="size-x" type="number" min="1" max="64" /></label>
+            <label><span>y</span><input id="size-y" type="number" min="1" max="64" /></label>
+            <label><span>z</span><input id="size-z" type="number" min="1" max="64" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend>Rules</legend>
+          <div class="pair">
+            <label><span>Max edits</span><input id="maxEdits" type="number" min="0" placeholder="none" /></label>
+            <label><span>Exact edits</span><input id="exactEdits" type="number" min="0" placeholder="none" /></label>
+            <label><span>Max blocks</span><input id="maxBlocks" type="number" min="0" placeholder="none" /></label>
+            <label><span>Exact blocks</span><input id="exactBlocks" type="number" min="0" placeholder="none" /></label>
+          </div>
+          <label class="inline">
+            <span>Edits</span>
+            <select id="only">
+              <option value="">Add and remove</option>
+              <option value="add">Add only</option>
+              <option value="remove">Remove only</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend>Answer</legend>
+          <div class="choice">
+            <label><input type="radio" name="status" value="solved" checked /> The Answer layer</label>
+            <label><input type="radio" name="status" value="impossible" /> Impossible</label>
+          </div>
+          <textarea id="reason" rows="2" placeholder="Why no structure satisfies the task" hidden></textarea>
+        </fieldset>
+
+        <label class="field">
+          <span>Puzzle</span>
+          <input id="parent" placeholder="this task" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <fieldset class="field">
+          <legend>Images</legend>
+          <ul class="images" id="images"></ul>
+          <div class="snapshots">
+            <span>Snapshot</span>
+            <button type="button" data-view="front">Front</button>
+            <button type="button" data-view="side">Side</button>
+            <button type="button" data-view="top">Top</button>
+            <button type="button" data-view="angled">Angled</button>
+          </div>
+        </fieldset>
+
+        <footer class="save">
+          <pre class="status" id="status" role="status"></pre>
+          <button type="button" class="primary" id="save">Save</button>
+        </footer>
+      </aside>
+
+      <aside class="panel" id="results" role="tabpanel" aria-labelledby="tab-results" hidden>
+        <label class="field">
+          <span>Run</span>
+          <select id="run-list"></select>
+        </label>
+        <label class="inline check">
+          <input type="checkbox" id="failed-only" /> Failed attempts only
+        </label>
+        <ol class="attempts" id="attempts"></ol>
+        <article class="detail" id="detail"></article>
+      </aside>
+    </main>
+  </body>
+</html>
