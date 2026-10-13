@@ -1,5 +1,9 @@
 # Spatial Reasoning Benchmark
 
+<p align="center">
+  <img src="docs/header.gif" width="600" alt="A block structure and its mirror image built one block at a time, then turned all the way around">
+</p>
+
 [![CI](https://github.com/Ammaar-Alam/project-01-spatial-reasoning/actions/workflows/ci.yml/badge.svg)](https://github.com/Ammaar-Alam/project-01-spatial-reasoning/actions/workflows/ci.yml)
 
 A COS 597C Project 1 benchmark by Ammaar Alam and Erik Dyer for evaluating spatial reasoning through one-shot construction and manipulation tasks.
@@ -25,13 +29,14 @@ pnpm install
 | `pnpm check` | Lint, typecheck, tests and task check, the same as CI |
 | `pnpm format` | Formats and fixes lint issues in place |
 | `pnpm bench` | Sends tasks to models and grades their answers, see [Running models](#running-models) |
+| `pnpm editor` | Opens the block editor and results viewer at http://127.0.0.1:4173, see [Editor](#editor) |
 
 ## Tasks
 
 Everything about a task lives in one JSON file: the prompt, the starting blocks, the rules, and the answer key. To add a task:
 
-1. Create `tasks/<family>/<name>.json`. A new family is a new folder.
-2. Put any images in the same family folder, or a subfolder of it, and list them in `images`.
+1. Build it in the [editor](#editor) and save, or create `tasks/<family>/<name>.json` by hand. A new family is a new folder.
+2. Put any images in the same family folder, or a subfolder of it, and list them in `images`. The editor does this for its snapshots.
 3. Run `pnpm tasks:check`.
 4. Run `pnpm bench --dry-run --tasks <family>/<name>` to see exactly what a model will receive.
 
@@ -124,7 +129,31 @@ A run writes:
 
 A request that fails before producing an answer, such as a network error, a provider outage, or an upstream error OpenRouter reports inside a normal response, is saved with `"status": "error"` and is not graded. Running the same command again retries only those attempts. For an OpenAI background request, the response id is saved with `"status": "started"` as soon as OpenAI accepts it, so a later run keeps checking that response instead of sending the task again, and its latency still counts from when it was first sent. A run can only be resumed with the same settings, task files and code, so changing any of them needs a new run name. If a crash cuts off the last line of `records.jsonl`, the next run moves that partial line to `records.jsonl.partial` and retries the attempt. Only one command can work on a run name at a time; a second one stops with an error instead of sending the same attempts again.
 
-[docs/architecture.md](docs/architecture.md) has diagrams of the data model, the grading flow and a run, plus every failure code.
+## Editor
+
+`pnpm editor` serves a local page for building tasks and reading results. It listens on 127.0.0.1 only; `--port` picks another port.
+
+**Build** edits one task at a time. Click a block face or the floor to add a block, shift-click a block to remove it, drag to turn the view, and Reset view brings the starting view back. The blocks sit in layers:
+
+- **Start** is `initial`, the structure the model is given.
+- **Answer** is the `reference` structure, unless the task is marked impossible.
+- **Protected** is `constraints.protected`.
+- **Alternative 1, 2, …** are `alternatives`.
+
+Save writes `tasks/<family>/<name>.json`, but only if the task passes the same checks as `pnpm tasks:check`; otherwise the page shows why and nothing is written. Saving a new task never overwrites an existing one.
+
+Once a task is saved, Snapshot saves the current layer as a 1024 by 768 PNG next to it and adds it to `images`. Every view frames the whole grid, so tasks with the same grid size get the same framing:
+
+| View | Camera |
+| --- | --- |
+| Front | Looks along -z, x to the right and y up, without perspective |
+| Side | Looks along -x, z to the left and y up, without perspective |
+| Top | Looks straight down, x to the right and z down the image, without perspective |
+| Angled | From the +x, +y, +z corner, with perspective |
+
+**Results** opens any run in `results/` without calling a model. Each attempt is drawn over the closest correct structure: matching blocks in blue, missing blocks as red outlines, extra blocks in amber. The prompt, images, failures and raw reply sit beside it.
+
+[docs/architecture.md](docs/architecture.md) has diagrams of the data model, the grading flow, a run and the editor, plus every failure code.
 
 ## License
 

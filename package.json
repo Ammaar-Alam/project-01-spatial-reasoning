@@ -10,20 +10,23 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm tasks:check",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "typecheck": "tsc",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc && tsc -p web",
+    "test": "node --test \"{src,web}/**/*.test.ts\"",
     "tasks:check": "node src/check-tasks.ts",
-    "bench": "node src/run.ts"
+    "bench": "node src/run.ts",
+    "editor": "node src/editor.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
     "openai": "7.32.0",
+    "three": "0.186.1",
     "undici": "7.30.0",
     "zod": "4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@types/node": "24.19.2",
+    "@types/three": "0.186.0",
     "typescript": "7.0.2"
   }
 }

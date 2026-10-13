@@ -183,7 +183,36 @@ OpenRouter can return HTTP 200 with an `error` on the choice when the upstream m
 
 When a run starts it copies every task file and image it uses into `results/<name>/tasks/`, in the same layout as `tasks/`, so the copy can be loaded and regraded on its own. Images must sit inside their task's family folder for this to work, which `loadTask` enforces. The run then loads the copy and checks each task's hash against the one it is about to send, so a task edited between loading and copying stops the run before anything is sent.
 
-`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit. `run.json` also records the commit and whether anything outside `results/` had uncommitted changes. It is written to a temporary file and renamed into place, so a run killed while starting never leaves half of it behind.
+`run.json` fixes the settings when a run starts: the attempt count, the system prompt, each model's full config, a SHA-256 hash per task covering every task field except local file paths plus the exact request, and a SHA-256 hash of every non-test file in `src/` except the editor, plus `pnpm-lock.yaml`. A later run with the same name must match all of them, so one run never mixes prompts, settings, task versions, answer keys, puzzle groupings, or code and SDK versions. Uncommitted edits count too, since the hash is of the files themselves rather than the commit. `run.json` also records the commit and whether anything outside `results/` had uncommitted changes. It is written to a temporary file and renamed into place, so a run killed while starting never leaves half of it behind.
+
+## Editor
+
+```mermaid
+sequenceDiagram
+  participant Page as Page (web/)
+  participant Server as editor.ts
+  participant Check as parseTask, checkTask
+  participant Biome as Biome
+  participant Disk as tasks/
+  Page->>Server: PUT /api/tasks/family/name (task JSON)
+  Server->>Check: same schema and answer key check as tasks:check
+  alt rejected
+    Check-->>Server: problems
+    Server-->>Page: 400 with the problems, nothing written
+  else accepted
+    Server->>Biome: format the JSON
+    Server->>Disk: write name.json.tmp, rename to name.json
+    Server-->>Page: saved
+  end
+```
+
+`pnpm editor` runs `src/editor.ts`, a `node:http` server on 127.0.0.1. Its routes are one function from a web `Request` to a `Response`, so the tests call it directly without opening a port. It serves the page from `web/`, stripping the types from each `.ts` file with Node's `module.stripTypeScriptTypes` as it is requested, and three.js from `node_modules` through an import map, so there is no build step.
+
+A save goes through `parseTask` and `checkTask`, the same functions `loadTask` and `pnpm tasks:check` use, so the page can never write a task the CLI would reject. The file is formatted by the repo's own Biome before it is written, so saved tasks pass `pnpm lint` unchanged. A new task is sent with `If-None-Match: *` and is refused if the file exists. Every path segment is decoded and checked before it is joined to a folder, images are only served from `tasks/` and run snapshots, and requests whose host is not `127.0.0.1` or `localhost` are refused, so another site that resolves its name to this machine cannot read or write tasks.
+
+The results view reads a run's own copy of its tasks and the latest record of each attempt. The server parses each reply with the grader's `parseAnswer`, and the page draws the answer against whichever accepted structure differs from it least. `readRecords` skips a cut-off last line, so a run that is still writing can be opened.
+
+`web/scene.ts` owns the three.js scene: block layers drawn as instanced cubes with outlines, the grid, orbit controls, picking and snapshots. `web/pick.ts` turns a ray hit into the cell to add or remove and is unit tested. The light rig and orbit settings are adapted from MineBench's viewer.
 
 ## Modules
 
@@ -198,6 +227,7 @@ flowchart BT
   models["models.ts<br/>models.json schema"]
   providers["providers.ts<br/>one adapter per API"]
   run["run.ts<br/>runs, records, CLI"]
+  editor["editor.ts<br/>editor server, CLI"]
   answer --> geometry
   task --> answer
   task --> geometry
@@ -216,6 +246,10 @@ flowchart BT
   run --> prompt
   run --> providers
   run --> task
+  editor --> answer
+  editor --> check
+  editor --> run
+  editor --> task
 ```
 
-Arrows point from a module to the module it imports. There are no import cycles. `task.ts` and `prompt.ts` read task and image files, `providers.ts` makes the network calls, and `run.ts` writes results. Parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner. Provider tests replace `fetch` with recorded responses, so they check the exact request each API receives without calling it.
+Arrows point from a module to the module it imports. There are no import cycles. `task.ts` and `prompt.ts` read task and image files, `providers.ts` makes the network calls, `run.ts` writes results, and `editor.ts` writes task files and snapshots. Parsing and grading are pure functions. Tests sit next to the module they cover as `*.test.ts` and run with Node's built-in test runner. Provider tests replace `fetch` with recorded responses, so they check the exact request each API receives without calling it.

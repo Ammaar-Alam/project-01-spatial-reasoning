@@ -80,7 +80,7 @@ export class TaskError extends Error {}
 
 export const TASKS_DIR = path.resolve(import.meta.dirname, "../tasks");
 
-const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const IMAGE_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -107,6 +107,18 @@ export async function loadTasks(root: string): Promise<Task[]> {
 }
 
 export async function loadTask(root: string, file: string): Promise<Task> {
+  let json: unknown;
+  try {
+    json = JSON.parse(await readFile(file, "utf8"));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new TaskError(`${path.relative(root, file)}: invalid JSON: ${reason}`);
+  }
+  return parseTask(root, file, json);
+}
+
+// checks a task's contents as if they were saved at file, which need not exist yet
+export async function parseTask(root: string, file: string, json: unknown): Promise<Task> {
   const relative = path.relative(root, file);
   const [family, fileName, ...rest] = relative.split(path.sep);
   const name = fileName?.replace(/\.json$/, "");
@@ -115,14 +127,6 @@ export async function loadTask(root: string, file: string): Promise<Task> {
   }
   if (!NAME.test(family) || !NAME.test(name)) {
     throw new TaskError(`${relative}: use lowercase letters, digits and hyphens in names`);
-  }
-
-  let json: unknown;
-  try {
-    json = JSON.parse(await readFile(file, "utf8"));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new TaskError(`${relative}: invalid JSON: ${reason}`);
   }
 
   const result = taskFileSchema.safeParse(json);
