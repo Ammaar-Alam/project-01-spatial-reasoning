@@ -142,7 +142,7 @@ A request that fails before producing an answer, such as a network error, a prov
 
 Save writes `tasks/<family>/<name>.json`, but only if the task passes the same checks as `pnpm tasks:check`; otherwise the page shows why and nothing is written. Saving a new task never overwrites an existing one.
 
-Snapshot saves the current layer as a 1024 by 768 PNG next to the task and adds it to `images`. Every view frames the whole grid, so tasks with the same grid size get the same framing:
+Once a task is saved, Snapshot saves the current layer as a 1024 by 768 PNG next to it and adds it to `images`. Every view frames the whole grid, so tasks with the same grid size get the same framing:
 
 | View | Camera |
 | --- | --- |

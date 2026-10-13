@@ -174,17 +174,28 @@ export function createResults(scene: Scene) {
   // the scene is shared with Build, so a late answer only draws while Results is the open tab
   const current = (mine: number) => mine === loading && !byId("results").hidden;
 
-  async function openRun(name: string) {
+  // reloaded each time, since a run that is still going keeps adding attempts
+  async function openRun(name: string, keep: Attempt | null = null) {
     const mine = ++loading;
     selected = null;
-    scene.show([]);
     try {
       const loaded = (await (await request(`/api/runs/${encodeURIComponent(name)}`)).json()) as Run;
       if (!current(mine)) return;
       run = loaded;
+      // the same attempt as before if it is still there, in its newest state
+      const same = keep
+        ? run.attempts.find(
+            (attempt) =>
+              attempt.task === keep.task &&
+              attempt.model === keep.model &&
+              attempt.attempt === keep.attempt,
+          )
+        : undefined;
+      if (same) return select(same);
       renderList();
       const first = byId("attempts").querySelector("button");
       if (first) first.click();
+      else scene.show([]);
     } catch (error) {
       if (!current(mine)) return;
       run = null;
@@ -213,6 +224,8 @@ export function createResults(scene: Scene) {
         const names = (await (await request("/api/runs")).json()) as string[];
         if (!current(mine)) return;
         const keep = names.includes(runs.value) ? runs.value : names.at(-1);
+        // the attempt on screen stays selected when its run is reloaded
+        const reopened = keep === runs.value ? selected : null;
         runs.replaceChildren(...names.map((name) => element("option", { value: name }, name)));
         if (!keep) {
           scene.show([]);
@@ -220,8 +233,7 @@ export function createResults(scene: Scene) {
           return note("No runs yet. Results appear here after pnpm bench.");
         }
         runs.value = keep;
-        if (selected && run) select(selected);
-        else await openRun(keep);
+        await openRun(keep, reopened);
       } catch (error) {
         if (current(mine)) note(message(error));
       }

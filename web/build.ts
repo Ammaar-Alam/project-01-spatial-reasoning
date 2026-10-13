@@ -305,13 +305,14 @@ export function createBuild(scene: Scene) {
   }
 
   async function snapshot(view: View) {
-    const named = familyAndName();
-    if (!named) return say("Give the task a family and a name first", true);
-    const image = `${named.name}-${view}.png`;
+    // an unsaved name may belong to an existing task, whose images a snapshot would replace
+    if (!id) return say("Save the task first, then take snapshots", true);
+    const [family = "", name = ""] = id.split("/");
+    const image = `${name}-${view}.png`;
     const task = opened;
     try {
       const blob = await scene.snapshot(view, [{ blocks: current(), style: "solid" }]);
-      await request(`/api/images/${encodeURIComponent(named.family)}/${image}`, {
+      await request(`/api/images/${encodeURIComponent(family)}/${image}`, {
         method: "PUT",
         body: blob,
       });
