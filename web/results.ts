@@ -42,13 +42,15 @@ function compare(target: Cell[], answer: Cell[]) {
 // an answer drawn over whichever accepted structure it is closest to, as the grader reports it
 function layersFor(task: RunTask, attempt: Attempt): Layer[] {
   const answer = attempt.answer?.status === "solved" ? attempt.answer.blocks : null;
+  // with no structure to grade, only the starting blocks are shown, faintly, as context
   if (task.reference.status === "impossible") {
     return answer
       ? [{ blocks: answer, style: "extra" }]
-      : [{ blocks: task.initial, style: "solid" }];
+      : [{ blocks: task.initial, style: "faint" }];
   }
   const accepted = [task.reference.blocks, ...task.alternatives];
-  if (!answer) return [{ blocks: task.reference.blocks, style: "solid" }];
+  // no structure at all, so every block of the answer key is missing
+  if (!answer) return [{ blocks: task.reference.blocks, style: "missing" }];
   const [closest] = accepted
     .map((target) => compare(target, answer))
     .sort((a, b) => a.missing.length + a.extra.length - (b.missing.length + b.extra.length));
@@ -192,7 +194,16 @@ export function createResults(scene: Scene) {
   }
 
   runs.addEventListener("change", () => void openRun(runs.value));
-  failedOnly.addEventListener("change", renderList);
+  // the shown attempt must stay in the list, otherwise the first one left is shown, or nothing
+  failedOnly.addEventListener("change", () => {
+    renderList();
+    const list = byId("attempts");
+    if (list.querySelector('[aria-current="true"]')) return;
+    const first = list.querySelector("button");
+    if (first) return first.click();
+    selected = null;
+    scene.show([]);
+  });
 
   return {
     async activate() {
