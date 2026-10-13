@@ -44,6 +44,8 @@ export function createBuild(scene: Scene) {
   let active: Active = "initial";
   let images: string[] = [];
   let dirty = false;
+  // bumped on every edit, so a save only clears dirty if nothing changed while it was in flight
+  let revision = 0;
 
   const current = (): Cell[] =>
     typeof active === "number" ? (layers.alternatives[active] ?? []) : layers[active];
@@ -58,6 +60,7 @@ export function createBuild(scene: Scene) {
 
   function touch() {
     dirty = true;
+    revision += 1;
     say("Unsaved changes");
   }
 
@@ -236,7 +239,7 @@ export function createBuild(scene: Scene) {
     try {
       const file = task
         ? ((await (await request(`/api/tasks/${task}`)).json()) as TaskFile)
-        : BLANK;
+        : structuredClone(BLANK);
       id = task;
       fill(file);
       active = task ? "answer" : "initial";
@@ -257,7 +260,10 @@ export function createBuild(scene: Scene) {
     if (!named) return say("Give the task a family and a name first", true);
     const { family, name } = named;
     const save = byId<HTMLButtonElement>("save");
+    // switching tasks mid save would leave the page pointing at the wrong file
     save.disabled = true;
+    list.disabled = true;
+    const sent = revision;
     try {
       await request(`/api/tasks/${encodeURIComponent(family)}/${encodeURIComponent(name)}`, {
         method: "PUT",
@@ -265,14 +271,15 @@ export function createBuild(scene: Scene) {
         body: JSON.stringify(toFile()),
       });
       id = `${family}/${name}`;
-      dirty = false;
+      dirty = revision !== sent;
       byId("new-name").hidden = true;
       await refreshList(id);
-      say(`Saved tasks/${id}.json`);
+      say(dirty ? "Saved, with newer unsaved changes" : `Saved tasks/${id}.json`);
     } catch (error) {
       say(message(error), true);
     } finally {
       save.disabled = false;
+      list.disabled = false;
     }
   }
 

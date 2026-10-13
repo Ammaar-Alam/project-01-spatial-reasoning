@@ -24,6 +24,11 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hiding an element must win over every display rule */
+  display: none !important;
+}
+
 body {
   margin: 0;
   height: 100vh;
@@ -160,11 +165,6 @@ main {
   list-style: none;
 }
 
-.legend[hidden],
-.hint[hidden] {
-  display: none;
-}
-
 .swatch {
   display: inline-block;
   width: 11px;
@@ -193,10 +193,6 @@ main {
   padding: 16px;
   border-left: 1px solid var(--rule);
   overflow-y: auto;
-}
-
-.panel[hidden] {
-  display: none;
 }
 
 .field {
@@ -243,10 +239,6 @@ input[type="number"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-}
-
-.pair[hidden] {
-  display: none;
 }
 
 .pair label,

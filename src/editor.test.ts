@@ -44,8 +44,13 @@ test("lists task ids and returns a task file as written", async () => {
   const { send } = await setup({
     "tasks/stack/tower-01.json": tower,
     "tasks/stack/tower-01.png": PNG,
+    "tasks/stack/side.PNG": PNG,
     "tasks/loose.json": tower,
   });
+  // the task loader accepts image extensions in any case, so serving must too
+  const upper = await send("/tasks/stack/side.PNG");
+  assert.equal(upper.status, 200);
+  assert.equal(upper.headers.get("content-type"), "image/png");
   assert.deepEqual(await (await send("/api/tasks")).json(), ["stack/tower-01"]);
   assert.deepEqual(await (await send("/api/tasks/stack/tower-01")).json(), tower);
   assert.equal((await send("/api/tasks/stack/missing")).status, 404);

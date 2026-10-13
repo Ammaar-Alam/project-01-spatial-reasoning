@@ -108,7 +108,7 @@ function segments(pathname: string): string[] {
 
 async function serve(root: string, parts: (string | undefined)[]): Promise<Response> {
   const file = path.join(root, ...parts.filter((part) => part !== undefined));
-  const type = TYPES[path.extname(file)];
+  const type = TYPES[path.extname(file).toLowerCase()];
   if (!type || parts.length === 0) throw notFound();
   const body = await readFile(file).catch(() => {
     throw notFound();
