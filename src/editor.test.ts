@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -101,6 +101,28 @@ test("refuses to create a task over one that exists, but saves edits to it", asy
   const created = await put("/api/tasks/stack/tower-01", edited, { "If-None-Match": "*" });
   assert.equal(created.status, 409);
   assert.equal((await put("/api/tasks/stack/tower-01", edited)).status, 200);
+});
+
+test("saves of one task at the same time never mix, and only one create wins", async () => {
+  const { root, put } = await setup();
+  const file = path.join(root, "tasks/stack/tower-01.json");
+  const prompts = Array.from({ length: 6 }, (_, i) => `Stack block ${i}.`);
+  const creates = await Promise.all(
+    prompts.map((prompt) =>
+      put("/api/tasks/stack/tower-01", { ...tower, prompt }, { "If-None-Match": "*" }),
+    ),
+  );
+  const statuses = creates.map((response) => response.status).sort();
+  assert.deepEqual(statuses, [200, 409, 409, 409, 409, 409]);
+  const winner = prompts[creates.findIndex((response) => response.status === 200)];
+  assert.equal(JSON.parse(await readFile(file, "utf8")).prompt, winner);
+
+  const edits = await Promise.all(
+    prompts.map((prompt) => put("/api/tasks/stack/tower-01", { ...tower, prompt })),
+  );
+  assert.ok(edits.every((response) => response.status === 200));
+  assert.ok(prompts.includes(JSON.parse(await readFile(file, "utf8")).prompt));
+  assert.deepEqual(await readdir(path.dirname(file)), ["tower-01.json"]);
 });
 
 test("saves snapshots as PNG files inside the family folder", async () => {
@@ -205,8 +227,9 @@ test("lists runs and shows every attempt with its parsed answer", async () => {
   const { send } = await setup({
     "results/first/run.json": {},
     "results/first/records.jsonl": records,
-    "results/first/tasks/stack/tower-01.json": { ...tower, images: ["tower-01.png"] },
+    "results/first/tasks/stack/tower-01.json": { ...tower, images: ["tower-01.png", "side#1.png"] },
     "results/first/tasks/stack/tower-01.png": PNG,
+    "results/first/tasks/stack/side#1.png": PNG,
     "results/no-settings/records.jsonl": "",
   });
 
@@ -217,7 +240,11 @@ test("lists runs and shows every attempt with its parsed answer", async () => {
   };
   const [task] = run.tasks;
   assert.equal(run.tasks.length, 1);
-  assert.deepEqual(task?.images, ["/results/first/tasks/stack/tower-01.png"]);
+  // file names are encoded so a # or ? stays part of the name
+  assert.deepEqual(task?.images, [
+    "/results/first/tasks/stack/tower-01.png",
+    "/results/first/tasks/stack/side%231.png",
+  ]);
   assert.equal(task?.file, undefined);
   assert.deepEqual(
     run.attempts.map((attempt) => [attempt.model, attempt.answer]),
@@ -228,6 +255,6 @@ test("lists runs and shows every attempt with its parsed answer", async () => {
       ["d", null],
     ],
   );
-  assert.equal((await send(task?.images[0] ?? "")).status, 200);
+  for (const image of task?.images ?? []) assert.equal((await send(image)).status, 200);
   assert.equal((await send("/api/runs/missing")).status, 404);
 });

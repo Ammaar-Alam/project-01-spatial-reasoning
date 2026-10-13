@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { link, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
@@ -158,9 +159,6 @@ async function saveTask(request: Request, root: string, family: string, name: st
   }
   const problems = checkTask(await parseTask(root, file, json));
   if (problems.length > 0) throw new HttpError(400, problems.join("\n\n"));
-  if (request.headers.get("if-none-match") === "*" && existsSync(file)) {
-    throw new HttpError(409, `${family}/${name} already exists`);
-  }
   // formatted by the repo's own Biome so saved tasks pass pnpm lint unchanged
   const formatted = execFileSync(
     BIOME,
@@ -171,8 +169,23 @@ async function saveTask(request: Request, root: string, family: string, name: st
     },
   );
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(`${file}.tmp`, formatted);
-  await rename(`${file}.tmp`, file);
+  // each save writes its own temporary file, then a create links it into place, which fails if
+  // the task exists by then, and an edit renames it over the old file
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  await writeFile(temporary, formatted);
+  try {
+    if (request.headers.get("if-none-match") === "*") {
+      await link(temporary, file).catch((error: NodeJS.ErrnoException) => {
+        throw error.code === "EEXIST"
+          ? new HttpError(409, `${family}/${name} already exists`)
+          : error;
+      });
+    } else {
+      await rename(temporary, file);
+    }
+  } finally {
+    await rm(temporary, { force: true });
+  }
   return Response.json({ id: `${family}/${name}` });
 }
 
@@ -205,10 +218,11 @@ async function getRun(root: string, name: string): Promise<Response> {
   const snapshot = path.join(dir, "tasks");
   const tasks = (await loadTasks(snapshot)).map(({ file: _, images, ...task }) => ({
     ...task,
-    images: images.map(
-      (image) =>
-        `/results/${name}/tasks/${path.relative(snapshot, image).split(path.sep).join("/")}`,
-    ),
+    // each part encoded so a # or ? in a file name stays part of the name
+    images: images.map((image) => {
+      const parts = path.relative(snapshot, image).split(path.sep).map(encodeURIComponent);
+      return `/results/${name}/tasks/${parts.join("/")}`;
+    }),
   }));
   const records = latestRecords(await readRecords(path.join(dir, "records.jsonl")));
   const attempts = [...records.values()].map((record) => {
@@ -222,7 +236,13 @@ async function getRun(root: string, name: string): Promise<Response> {
 export function listen(handler: Handler, port: number): Server {
   const server = createServer(async (req, res) => {
     const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    try {
+      for await (const chunk of req) chunks.push(chunk as Buffer);
+    } catch {
+      // the page went away mid upload, nothing to answer and nothing to save
+      res.destroy();
+      return;
+    }
     const headers = Object.entries(req.headers).flatMap(([key, value]) =>
       typeof value === "string" ? [[key, value] as [string, string]] : [],
     );

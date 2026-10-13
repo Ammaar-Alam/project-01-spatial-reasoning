@@ -46,6 +46,8 @@ export function createBuild(scene: Scene) {
   let dirty = false;
   // bumped on every edit, so a save only clears dirty if nothing changed while it was in flight
   let revision = 0;
+  // bumped on every task opened, so a late load or snapshot never lands in another task
+  let opened = 0;
 
   const current = (): Cell[] =>
     typeof active === "number" ? (layers.alternatives[active] ?? []) : layers[active];
@@ -136,7 +138,10 @@ export function createBuild(scene: Scene) {
   }
 
   function renderImages() {
-    const family = familyAndName()?.family;
+    const family = encodeURIComponent(familyAndName()?.family ?? "");
+    // each part encoded so a # or ? in a file name stays part of the name
+    const url = (image: string) =>
+      `/tasks/${family}/${image.split("/").map(encodeURIComponent).join("/")}`;
     const items = images.map((image) =>
       element(
         "li",
@@ -146,8 +151,8 @@ export function createBuild(scene: Scene) {
           {},
           element(
             "a",
-            { href: `/tasks/${family}/${image}`, target: "_blank" },
-            element("img", { src: `/tasks/${family}/${image}?v=${Date.now()}`, alt: image }),
+            { href: url(image), target: "_blank" },
+            element("img", { src: `${url(image)}?v=${Date.now()}`, alt: image }),
           ),
           element("figcaption", {}, image),
         ),
@@ -236,10 +241,13 @@ export function createBuild(scene: Scene) {
   }
 
   async function open(task: string | null) {
+    const mine = ++opened;
     try {
       const file = task
         ? ((await (await request(`/api/tasks/${task}`)).json()) as TaskFile)
         : structuredClone(BLANK);
+      // another task was picked while this one loaded
+      if (mine !== opened) return;
       id = task;
       fill(file);
       active = task ? "answer" : "initial";
@@ -287,12 +295,15 @@ export function createBuild(scene: Scene) {
     const named = familyAndName();
     if (!named) return say("Give the task a family and a name first", true);
     const image = `${named.name}-${view}.png`;
+    const task = opened;
     try {
       const blob = await scene.snapshot(view, [{ blocks: current(), style: "solid" }]);
       await request(`/api/images/${encodeURIComponent(named.family)}/${image}`, {
         method: "PUT",
         body: blob,
       });
+      // saved next to the task it was taken for, but only listed if that task is still open
+      if (task !== opened) return;
       if (!images.includes(image)) images.push(image);
       touch();
       renderImages();
