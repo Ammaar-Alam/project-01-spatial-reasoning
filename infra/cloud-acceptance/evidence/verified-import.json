@@ -1,0 +1,21 @@
+{
+  "timestamp_utc": "2026-10-14T19:31:30.927033+00:00",
+  "status": "PASS",
+  "archive_sha256": "280c6b0eec0d77aca8a122d46731663cbe63f51c7d4db8221daf8b94ee396a99",
+  "archive_files": 80,
+  "manifest_checksums": 79,
+  "generated_checksums": 23,
+  "fixtures": 14,
+  "images": 8,
+  "provenance": {
+    ".baseline-main-provenance.json": {
+      "commit": "ea97a9b600676804c55addd20155d9ad8cf721a3",
+      "verified_blobs": 18
+    },
+    "runner-snapshot/.snapshot-provenance.json": {
+      "commit": "4d449e2a71ee93309954888b951327cdb2dbdb3c",
+      "verified_blobs": 27
+    }
+  },
+  "destination": "/workspace/cloud-acceptance-20261014/verified-fixtures"
+}

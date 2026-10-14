@@ -1,0 +1,99 @@
+{
+  "completed_at_utc": "2026-10-14T19:32:55.901Z",
+  "checks": [
+    {
+      "name": "fixture schema and reference compatibility",
+      "status": "PASS",
+      "timestamp_utc": "2026-10-14T19:32:55.228Z",
+      "evidence": {
+        "checked": 14,
+        "problems": []
+      }
+    },
+    {
+      "name": "CPU request construction",
+      "status": "PASS",
+      "timestamp_utc": "2026-10-14T19:32:55.235Z",
+      "evidence": {
+        "requests": 14,
+        "image_parts": 8,
+        "structural_answer_exclusion": true,
+        "model_calls": 0,
+        "semantic_answer_and_image_audit": "Outside infrastructure acceptance scope"
+      }
+    },
+    {
+      "name": "native creator HTTP preview",
+      "status": "PASS",
+      "timestamp_utc": "2026-10-14T19:32:55.323Z",
+      "evidence": {
+        "loopback": true,
+        "routes": {
+          "/": 200,
+          "/api/tasks": 200,
+          "/web/main.ts": 200,
+          "/web/build.ts": 200,
+          "/web/scene.ts": 200,
+          "/three/build/three.module.js": 200
+        },
+        "fixtures": 14,
+        "images": 8
+      }
+    },
+    {
+      "name": "existing fixture save and reload",
+      "status": "PASS",
+      "timestamp_utc": "2026-10-14T19:32:55.442Z",
+      "evidence": {
+        "fixture": "transform/case-001",
+        "separate_directory": true,
+        "save_status": 200,
+        "collision_status": 409,
+        "unchanged_content": true
+      }
+    },
+    {
+      "name": "sandboxed cloud browser preview and save",
+      "status": "FAIL",
+      "timestamp_utc": "2026-10-14T19:32:55.896Z",
+      "evidence": {
+        "reason": "[pid=2522][err] [2522:2522:1014/193255.884250:FATAL:sandbox/linux/suid/client/setuid_sandbox_host.cc:172] The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /usr/lib/chromium/chrome-sandbox is owned by root and has mode 4755.\n  - [pid=2522][err] [2522:2522:1014/193255.884250:FATAL:sandbox/linux/suid/client/setuid_sandbox_host.cc:172] The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /usr/lib/chromium/chrome-sandbox is owned by root and has mode 4755.",
+        "security_relaxation_attempted": false
+      }
+    },
+    {
+      "name": "fixture input preservation",
+      "status": "PASS",
+      "timestamp_utc": "2026-10-14T19:32:55.901Z",
+      "evidence": {
+        "input_files": 22
+      }
+    }
+  ],
+  "fixture_hashes": {
+    "reconstruction/case-005.json": "282e77cee3fd899e147906ac6a421f164c52bb110b20ee6870eb30236c6d189b",
+    "reconstruction/case-006.json": "c7837b7954654d2ccd7a38b28e45b6a1849300f42ce8f056f3857a5ab02697b8",
+    "reconstruction/case-007.json": "cb8a875bc7e435b4f40d85f448560b80c94e05030d625b04c147be1b4e95ec3e",
+    "reconstruction/case-008.json": "7ab8ca8be13db46a6bd8e348b331fbe7303d1ca2c01feb137bf4bf3772ba1b94",
+    "reconstruction/case-009.json": "ef05beb9ef718f33b9971086503dfd2ac5de660fe6f92ec2544b7bde9e447ec0",
+    "reconstruction/case-010.json": "d1bf53442403424ba7491b697dad6db4ac536be591fc768cbddd3fde012b5ec8",
+    "reconstruction/view-006-0.png": "41e8aef7200a852d5616f7f138d828a6932d6ebb1f710f2c0b6e54dbeaec80a5",
+    "reconstruction/view-006-1.png": "6300bee5916817057dff733095abbeac388a86af99eefff2be59a208c45f277e",
+    "reconstruction/view-006-2.png": "1d7283c3c262113f907dbcf861200073355b8d3455d781cd8caaa5968b2f9e65",
+    "reconstruction/view-008-0.png": "41e8aef7200a852d5616f7f138d828a6932d6ebb1f710f2c0b6e54dbeaec80a5",
+    "reconstruction/view-008-1.png": "6300bee5916817057dff733095abbeac388a86af99eefff2be59a208c45f277e",
+    "reconstruction/view-010-0.png": "41e8aef7200a852d5616f7f138d828a6932d6ebb1f710f2c0b6e54dbeaec80a5",
+    "reconstruction/view-010-1.png": "6300bee5916817057dff733095abbeac388a86af99eefff2be59a208c45f277e",
+    "reconstruction/view-010-2.png": "871f0e9031ce34831bcfaefce26700922451ff6bc075cc80f39ca96e26089aee",
+    "repair/case-013.json": "fd6f1839c754f0f054d098d7cf953468d28b5c0186a7ff635034d11ad8c6af49",
+    "repair/case-014.json": "3e7ea6d61dfc982bb520b03fe0187edd1190130fe12e0a2d0cc07d1881ce960f",
+    "transform/case-001.json": "1e8adff388ee78d1693381b4f019e99b3c9dffe0da10de1af17ece580162b5c1",
+    "transform/case-002.json": "f8a1a20e59c06b9259e76a28a63a9fb316adad12ae674aa95d3dc17988df6418",
+    "transform/case-003.json": "67b6441f4b80cba0adb4a525674f6cffefe941baf17e61bc3cdf6dd7a94c499d",
+    "transform/case-004.json": "cd06752d75feca131be7a72738834b1f1ee2bd845282a5c748bcedeb54f85ec4",
+    "viewpoint/case-011.json": "aa6feb06c7c844c683a6aed4bb3175b944d24e2d655ecafb55c7eb4b79f44ce6",
+    "viewpoint/case-012.json": "fd85147c95ca332f66111a85ee2e09663b6a4b26eeea8da810a8cc08836351f2"
+  },
+  "model_calls": 0,
+  "research_experiments": 0
+}

@@ -1,0 +1,19 @@
+{
+  "timestamp_utc": "2026-10-14T19:31:32.140186+00:00",
+  "environment_id": "ccarenv_b64_Y2NhcmVudl81MTdlMDJhZGJkZDA4MTkxYTA2MDEyOGIzNGVlM2Y0Yw",
+  "observed_image": "20261010195509-3f260dca55b9",
+  "observed_runtime_bundle": "26.1007.11041",
+  "expected_config_version": "2ce0a78b-62f3-4978-acc8-a4db55ba7297~cecfgver_6acfd20289cc8191baa44aa19d8c41ec",
+  "expected_config_version_verified": false,
+  "reason": "No authenticated environment configuration read/editor capability is exposed; runtime metadata does not contain this version.",
+  "credentials_presence": {
+    "GH_TOKEN": true,
+    "OPENAI_API_KEY": false,
+    "ANTHROPIC_API_KEY": false,
+    "NEURONIC_API_KEY": false
+  },
+  "startup_dependencies_initial": "FAIL; missing @anthropic-ai/sdk, openai, undici, @types/three",
+  "recovery": "pnpm install --frozen-lockfile --ignore-scripts in isolated source and existing primary checkout; no tracked changes",
+  "mac_used": false,
+  "training_actions": 0
+}

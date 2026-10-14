@@ -1,0 +1,170 @@
+{
+  "timestamp_utc": "2026-10-14T19:33:27.758230+00:00",
+  "source_commit": "2f82913156502dcc42c08a5067260ba6dde86015",
+  "source_tree": "0fb04688df550d9918959afe079aa6227d36d6ab",
+  "source_tar_sha256": "d73d95ef1cbbb6c55d3f58fe451719dcdaa0aedba9017bad090e8f0ae3f233f8",
+  "source_files_verified": 40,
+  "primary_clean": true,
+  "files": [
+    {
+      "path": ".env.example",
+      "git_blob": "894c125960a13d58da08906573b97c94425c5a14"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "git_blob": "3a09dd57093e80a8a9fb0a1a67617f5d4e12fcc0"
+    },
+    {
+      "path": ".gitignore",
+      "git_blob": "044071db56d8a2aa2925aeb80d26b3281f85a820"
+    },
+    {
+      "path": ".nvmrc",
+      "git_blob": "a45fd52cc5891570d6299fab38643103c3955474"
+    },
+    {
+      "path": "LICENSE",
+      "git_blob": "bd6ff28d7fdc652da53528e59d489925cfe67a13"
+    },
+    {
+      "path": "README.md",
+      "git_blob": "cb1276aed795ecf4d9bd7c95f981b44be5f46a39"
+    },
+    {
+      "path": "biome.json",
+      "git_blob": "9ac8b34b04ae1ae40d7a813b082112a695d8d776"
+    },
+    {
+      "path": "docs/architecture.md",
+      "git_blob": "63800e4c68e1b92b40450bb8664df89006ec034e"
+    },
+    {
+      "path": "docs/header.gif",
+      "git_blob": "f83772708ab510d0d69de63a755cfda410210c78"
+    },
+    {
+      "path": "models.json",
+      "git_blob": "7da0189e47952929f35279a24f791b1e055bfdc5"
+    },
+    {
+      "path": "package.json",
+      "git_blob": "74fbdafbf4fb82d21ac1d545ba10779e6f3551f0"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "git_blob": "69f7eb29e3c36789e9aff800fd8d48e653ba37ed"
+    },
+    {
+      "path": "src/answer.test.ts",
+      "git_blob": "eea37f153792c1c2a5ad4675fdf8b8d96188d8d5"
+    },
+    {
+      "path": "src/answer.ts",
+      "git_blob": "9a8f87078666093b01e6556887da4b93f32bb724"
+    },
+    {
+      "path": "src/check-tasks.ts",
+      "git_blob": "3295cf3bcb400c9ec19e0cc7e88bc927266f9f6c"
+    },
+    {
+      "path": "src/editor.test.ts",
+      "git_blob": "a66a12d211cd7020661e5086cccba0c4d3a70d9b"
+    },
+    {
+      "path": "src/editor.ts",
+      "git_blob": "5e9a2fcf3422d4f60af504e708f0ca5ced7f5bad"
+    },
+    {
+      "path": "src/geometry.ts",
+      "git_blob": "fec7e050d8e2f82fb7c62a4e9e8aabaaae13cf36"
+    },
+    {
+      "path": "src/grade.test.ts",
+      "git_blob": "f5f0a460365ce18067453c6890231699aa2bfd39"
+    },
+    {
+      "path": "src/grade.ts",
+      "git_blob": "a4d10595e7253922ee9119b4e3331230facfdfd5"
+    },
+    {
+      "path": "src/models.ts",
+      "git_blob": "00f738ada52872fd001f36dea60df0065e077afd"
+    },
+    {
+      "path": "src/prompt.test.ts",
+      "git_blob": "f9656856c4b7df82c277315d092c1117607e606c"
+    },
+    {
+      "path": "src/prompt.ts",
+      "git_blob": "9c112c41dbb183a4b3fa8b64007a58983f6c568d"
+    },
+    {
+      "path": "src/providers.test.ts",
+      "git_blob": "79b7b2062a2598e084b045d4d339bf12865d6923"
+    },
+    {
+      "path": "src/providers.ts",
+      "git_blob": "d708172f4e6d743f08448ffee72c3d8673cb6e5b"
+    },
+    {
+      "path": "src/run.test.ts",
+      "git_blob": "7691a4073f8f1d5b2c1483c83279cbe5df16e664"
+    },
+    {
+      "path": "src/run.ts",
+      "git_blob": "83d81f820959c9548ddedd7a2ade7e6306ca0c5f"
+    },
+    {
+      "path": "src/task.test.ts",
+      "git_blob": "93b194a7c7b29f810e532106a00ad60af905d025"
+    },
+    {
+      "path": "src/task.ts",
+      "git_blob": "32a2e9f1aed61f08f967ca809836d369049d75b6"
+    },
+    {
+      "path": "tsconfig.json",
+      "git_blob": "4a08adbadf59fe2abf73f8175ea703adb559ab1e"
+    },
+    {
+      "path": "web/build.ts",
+      "git_blob": "9e41b48b64194038f9083dbbe56e8f056a49bdbb"
+    },
+    {
+      "path": "web/dom.ts",
+      "git_blob": "455ed09997fba079dc22ff4e5cf2fc24600df5e0"
+    },
+    {
+      "path": "web/index.html",
+      "git_blob": "3a96ad3df91f8fb6f3e3e5dab343fcf7f0dc6068"
+    },
+    {
+      "path": "web/main.ts",
+      "git_blob": "53bac5f0b30bbab92a83b2269f76357180772bff"
+    },
+    {
+      "path": "web/pick.test.ts",
+      "git_blob": "bdfaa65b7489c3974f2fac7c0a48ba6b4c9a1e4f"
+    },
+    {
+      "path": "web/pick.ts",
+      "git_blob": "d17636c35dcf59c84b2d115c199d6ee2bdffd7cd"
+    },
+    {
+      "path": "web/results.ts",
+      "git_blob": "134a89bb054c936f75a3beec9f73553dd35d2e41"
+    },
+    {
+      "path": "web/scene.ts",
+      "git_blob": "d6e57f8020244d8223446e9a7917e259960214e4"
+    },
+    {
+      "path": "web/style.css",
+      "git_blob": "bab3df1d6e2e8d1225eca549fd7d8d83534d6c41"
+    },
+    {
+      "path": "web/tsconfig.json",
+      "git_blob": "8dcdbb0d08c68f90487b2fa58f1159c3077b976b"
+    }
+  ]
+}

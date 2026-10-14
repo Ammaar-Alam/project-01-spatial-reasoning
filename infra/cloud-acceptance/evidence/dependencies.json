@@ -1,0 +1,27 @@
+{
+  "observed_at_utc": "2026-10-14T19:34:11.542313+00:00",
+  "status": "PASS",
+  "initial_startup_readiness": "FAIL",
+  "recovery": "pnpm install --frozen-lockfile --ignore-scripts",
+  "primary_check": {
+    "command": "pnpm check",
+    "exit_code": 0,
+    "lint": "PASS",
+    "typecheck": "PASS for both source and web",
+    "tests_passed": 89,
+    "tests_failed": 0,
+    "baseline_tasks_checked": 0
+  },
+  "isolated_check": {
+    "command": "pnpm check",
+    "exit_code": 0,
+    "tests_passed": 89,
+    "tests_failed": 0,
+    "baseline_tasks_checked": 0
+  },
+  "setup_recipe": {
+    "nonlogin_execution": true,
+    "exit_code": 0,
+    "lifecycle_scripts": false
+  }
+}
