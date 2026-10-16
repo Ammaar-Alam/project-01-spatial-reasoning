@@ -5,7 +5,8 @@ import { type Cell, cellFor } from "./pick.ts";
 export type Style = "solid" | "faint" | "missing" | "extra" | "protected";
 export type Layer = { blocks: Cell[]; style: Style };
 // front looks along -z, side along -x, top straight down with x to the right
-export type View = "front" | "side" | "top" | "angled";
+// angled and behind look down from opposite corners, so between them they see every outside face
+export type View = "front" | "side" | "top" | "angled" | "behind";
 export type Mode = "add" | "remove";
 
 const SNAPSHOT = { width: 1024, height: 768 };
@@ -106,12 +107,13 @@ function viewCamera(size: Cell, view: View, aspect: number): THREE.Camera {
   const centre = new THREE.Vector3(size.x / 2, size.y / 2, size.z / 2);
   const radius = centre.length();
   const distance = radius * 4;
-  if (view === "angled") {
+  if (view === "angled" || view === "behind") {
     const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, distance * 4);
     const fit = (radius * 1.15) / Math.sin(THREE.MathUtils.degToRad(Math.min(40, 40 * aspect) / 2));
+    const corner = view === "angled" ? [1, 0.8, 1.25] : [-1, 0.8, -1.25];
     camera.position
       .copy(centre)
-      .add(new THREE.Vector3(1, 0.8, 1.25).normalize().multiplyScalar(fit));
+      .add(new THREE.Vector3(...corner).normalize().multiplyScalar(fit));
     camera.lookAt(centre);
     return camera;
   }
