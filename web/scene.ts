@@ -111,9 +111,7 @@ function viewCamera(size: Cell, view: View, aspect: number): THREE.Camera {
     const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, distance * 4);
     const fit = (radius * 1.15) / Math.sin(THREE.MathUtils.degToRad(Math.min(40, 40 * aspect) / 2));
     const corner = view === "angled" ? [1, 0.8, 1.25] : [-1, 0.8, -1.25];
-    camera.position
-      .copy(centre)
-      .add(new THREE.Vector3(...corner).normalize().multiplyScalar(fit));
+    camera.position.copy(centre).add(new THREE.Vector3(...corner).normalize().multiplyScalar(fit));
     camera.lookAt(centre);
     return camera;
   }
