@@ -308,44 +308,66 @@ type GeminiResponse = {
   candidates?: {
     content?: { parts?: { text?: string; thought?: boolean }[] };
     finishReason?: string;
+    continuationToken?: string;
   }[];
   promptFeedback?: { blockReason?: string };
-  usageMetadata?: unknown;
+  usageMetadata?: Record<string, unknown>;
   modelVersion?: string;
   responseId?: string;
 };
 
+// each long decode hop reports and bills its own tokens, so a reply's usage is the sum
+function addUsage(total: Record<string, unknown> | null, hop?: Record<string, unknown>) {
+  if (!total || !hop) return total ?? hop ?? null;
+  const sum = { ...total };
+  for (const [key, value] of Object.entries(hop)) {
+    const before = sum[key];
+    sum[key] = typeof value === "number" && typeof before === "number" ? before + value : value;
+  }
+  return sum;
+}
+
 // plain rest call, the google sdk retries on its own
 async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    signal: AbortSignal.timeout(DEADLINE_MS),
-    dispatcher,
-    body: JSON.stringify({
-      ...config.params,
-      systemInstruction: { parts: [{ text: request.system }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            ...request.images.map((image) => ({
-              inlineData: { mimeType: image.mediaType, data: image.data },
-            })),
-            { text: request.text },
-          ],
-        },
-      ],
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Gemini ${response.status}: ${(await response.text()).slice(0, 500)}`);
-  }
-  const data = (await response.json()) as GeminiResponse;
-  const candidate = data.candidates?.[0];
-  const parts = candidate?.content?.parts ?? [];
-  const finish = candidate?.finishReason;
+  const body = {
+    ...config.params,
+    systemInstruction: { parts: [{ text: request.system }] },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          ...request.images.map((image) => ({
+            inlineData: { mimeType: image.mediaType, data: image.data },
+          })),
+          { text: request.text },
+        ],
+      },
+    ],
+  };
+  const parts: { text?: string; thought?: boolean }[] = [];
+  let usage: Record<string, unknown> | null = null;
+  let data: GeminiResponse;
+  let continuationToken: string | undefined;
+  // long decode stops at CONTINUATION, and the same request with its token picks up where it left off
+  do {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(DEADLINE_MS),
+      dispatcher,
+      body: JSON.stringify(continuationToken ? { ...body, continuationToken } : body),
+    });
+    if (!response.ok) {
+      throw new Error(`Gemini ${response.status}: ${(await response.text()).slice(0, 500)}`);
+    }
+    data = (await response.json()) as GeminiResponse;
+    const hop = data.candidates?.[0];
+    parts.push(...(hop?.content?.parts ?? []));
+    usage = addUsage(usage, data.usageMetadata);
+    continuationToken = hop?.finishReason === "CONTINUATION" ? hop.continuationToken : undefined;
+  } while (continuationToken);
+  const finish = data.candidates?.[0]?.finishReason;
   return {
     text: parts.flatMap((part) => (part.thought || !part.text ? [] : [part.text])).join(""),
     stopReason: finish ?? data.promptFeedback?.blockReason ?? null,
@@ -355,7 +377,7 @@ async function gemini(config: ModelConfig, request: ModelRequest, apiKey: string
     // gemini signals a block through a blocked prompt or a filter stop rather than a refusal
     refusal:
       data.promptFeedback?.blockReason ?? (finish && GEMINI_FILTERS.has(finish) ? finish : null),
-    usage: data.usageMetadata ?? null,
+    usage,
   };
 }
 

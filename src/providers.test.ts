@@ -548,6 +548,33 @@ test("gemini skips thought parts and keeps the answer text", async () => {
   });
 });
 
+test("gemini resends long decode hops with the latest token and joins them", async () => {
+  const hop = (finishReason: string, parts: unknown[], token?: string) =>
+    json({
+      candidates: [{ content: { parts }, finishReason, continuationToken: token }],
+      usageMetadata: { promptTokenCount: 10, thoughtsTokenCount: 100 },
+      modelVersion: "gemini-4-argon",
+      responseId: finishReason,
+    });
+  const sent = fakeFetch(
+    hop("CONTINUATION", [{ text: "thinking...", thought: true }], "t1"),
+    hop("CONTINUATION", [{ text: answer.slice(0, 10) }], "t2"),
+    hop("STOP", [{ text: answer.slice(10) }]),
+  );
+  const reply = await callModel(
+    { provider: "gemini", model: "gemini-4-argon", params: { generationConfig: {} } },
+    request,
+  );
+
+  assert.equal(sent.length, 3);
+  assert.equal(sent[0]?.body.continuationToken, undefined);
+  assert.deepEqual(sent[2]?.body, { ...sent[0]?.body, continuationToken: "t2" });
+  assert.equal(reply.text, answer);
+  assert.equal(reply.stopReason, "STOP");
+  assert.equal(reply.responseId, "STOP");
+  assert.deepEqual(reply.usage, { promptTokenCount: 30, thoughtsTokenCount: 300 });
+});
+
 const chat = (choice: Record<string, unknown>) =>
   json({
     id: "gen-1",
