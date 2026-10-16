@@ -124,6 +124,16 @@
       }
     }
   },
+  "gemini-4-argon": {
+    "provider": "gemini",
+    "model": "gemini-4-argon",
+    "params": {
+      "generationConfig": {
+        "maxOutputTokens": 128000,
+        "thinkingConfig": { "thinkingLevel": "high" }
+      }
+    }
+  },
   "glm-5.3": {
     "provider": "openrouter",
     "model": "z-ai/glm-5.3",
