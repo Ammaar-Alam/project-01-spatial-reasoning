@@ -26,6 +26,24 @@
       "output_config": { "effort": "low" }
     }
   },
+  "claude-opus-5-5-high-openrouter": {
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-5.5",
+    "params": {
+      "max_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "provider": { "require_parameters": true }
+    }
+  },
+  "claude-opus-5-5-low-openrouter": {
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-5.5",
+    "params": {
+      "max_tokens": 128000,
+      "reasoning": { "effort": "low" },
+      "provider": { "require_parameters": true }
+    }
+  },
   "gpt-6.1-sol": {
     "provider": "openai",
     "model": "gpt-6.1-sol",
@@ -56,6 +74,36 @@
       "store": true
     }
   },
+  "gpt-6.1-sol-high": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "params": {
+      "max_output_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "background": true,
+      "store": true
+    }
+  },
+  "gpt-6-sol-high": {
+    "provider": "openai",
+    "model": "gpt-6-sol",
+    "params": {
+      "max_output_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "background": true,
+      "store": true
+    }
+  },
+  "gpt-6-luna-high": {
+    "provider": "openai",
+    "model": "gpt-6-luna",
+    "params": {
+      "max_output_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "background": true,
+      "store": true
+    }
+  },
   "gemini-3.8-flash": {
     "provider": "gemini",
     "model": "gemini-3.8-flash",
@@ -66,9 +114,37 @@
       }
     }
   },
+  "gemini-3.8-flash-low": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "params": {
+      "generationConfig": {
+        "maxOutputTokens": 65536,
+        "thinkingConfig": { "thinkingLevel": "low" }
+      }
+    }
+  },
   "glm-5.3": {
     "provider": "openrouter",
     "model": "z-ai/glm-5.3",
+    "params": {
+      "max_tokens": 131072,
+      "reasoning": { "effort": "high" },
+      "provider": { "require_parameters": true }
+    }
+  },
+  "glm-5.3-flash": {
+    "provider": "openrouter",
+    "model": "z-ai/glm-5.3-flash",
+    "params": {
+      "max_tokens": 131072,
+      "reasoning": { "effort": "high" },
+      "provider": { "require_parameters": true }
+    }
+  },
+  "deepseek-v4.1-flash": {
+    "provider": "openrouter",
+    "model": "deepseek/deepseek-v4.1-flash",
     "params": {
       "max_tokens": 131072,
       "reasoning": { "effort": "high" },

@@ -243,6 +243,13 @@ async function openrouter(config: ModelConfig, request: ModelRequest, apiKey: st
     throw new Error(`${completion.id}: ${failure?.message ?? "upstream error"}`);
   }
   if (!choice) throw new Error(`${completion.id} returned no choices`);
+  // a generation cut off upstream comes back with no finish reason and no text, and is still billed
+  // any text is graded as it is, so an answer is never replaced by a second generation
+  if (!choice.finish_reason && !choice.message.refusal && !choice.message.content?.trim()) {
+    throw Object.assign(new Error(`${completion.id} stopped with no finish reason and no text`), {
+      usage: completion.usage ?? null,
+    });
+  }
   return {
     text: choice.message.content ?? "",
     stopReason: choice.finish_reason,

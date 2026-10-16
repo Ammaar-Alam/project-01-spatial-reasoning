@@ -580,6 +580,50 @@ test("openrouter treats an error inside a 200 response as a failed call", async 
     mock.restoreAll();
   }
 
+  // cut off upstream, with reasoning billed and no text
+  fakeFetch(
+    json({
+      id: "gen-1",
+      object: "chat.completion",
+      created: 0,
+      model: "z-ai/glm-5.3",
+      choices: [{ index: 0, finish_reason: null, message: { role: "assistant", content: " " } }],
+      usage: { completion_tokens: 8084, cost: 0.007 },
+    }),
+  );
+  await assert.rejects(
+    callModel({ provider: "openrouter", model: "z-ai/glm-5.3", params: {} }, request),
+    (error: Error & { usage?: { cost?: number } }) =>
+      /no finish reason/.test(error.message) && error.usage?.cost === 0.007,
+  );
+  mock.restoreAll();
+
+  // a refusal is still the model's answer
+  fakeFetch(
+    chat({
+      index: 0,
+      finish_reason: null,
+      message: { role: "assistant", content: "", refusal: "I can't help with that." },
+    }),
+  );
+  const refused = await callModel(
+    { provider: "openrouter", model: "z-ai/glm-5.3", params: {} },
+    request,
+  );
+  assert.equal(refused.refusal, "I can't help with that.");
+  mock.restoreAll();
+
+  // text with no finish reason is graded as it is
+  fakeFetch(
+    chat({ index: 0, finish_reason: null, message: { role: "assistant", content: '{"status":' } }),
+  );
+  const partial = await callModel(
+    { provider: "openrouter", model: "z-ai/glm-5.3", params: {} },
+    request,
+  );
+  assert.equal(partial.text, '{"status":');
+  mock.restoreAll();
+
   fakeFetch(json({ id: "gen-1", object: "chat.completion", created: 0, model: "m", choices: [] }));
   await assert.rejects(
     callModel({ provider: "openrouter", model: "z-ai/glm-5.3", params: {} }, request),

@@ -1,0 +1,91 @@
+{
+  "attempts": 1,
+  "system": "You solve spatial reasoning tasks on a 3D grid of unit blocks.\n\nEach block fills one cell with integer coordinates x, y and z. The y axis points up and y = 0 is the bottom layer. The x and z axes are horizontal.\n\nReply with exactly one JSON object and nothing else.\n\nIf the task can be done, give the complete final structure. List every block that exists at the end, including starting blocks you keep:\n{\"status\": \"solved\", \"blocks\": [{\"x\": 0, \"y\": 0, \"z\": 0}]}\n\nIf the task cannot be done under its rules, or it does not give enough information to complete it as asked, say so instead:\n{\"status\": \"impossible\", \"reason\": \"one short sentence\"}",
+  "models": {
+    "claude-opus-5-5-low-openrouter": {
+      "provider": "openrouter",
+      "model": "anthropic/claude-opus-5.5",
+      "params": {
+        "max_tokens": 128000,
+        "reasoning": {
+          "effort": "low"
+        },
+        "provider": {
+          "require_parameters": true
+        }
+      }
+    }
+  },
+  "tasks": {
+    "hinted/chair-half": "690531e1ffe0d79c0d4860c8ae11f9ff8e41eabdba03be8894cc71f66279e8f0",
+    "hinted/corner": "d2ff14cc960fdbbf16ea72cb5810f700019b6a278ff3aec705d3e5249ddc8cb1",
+    "hinted/cube-turn": "bb836a38f679fc860274e442b670556b4b887fd0ddc887c335581b9fc37f168f",
+    "hinted/hook": "8cd2274cf646c0f8d2568576d54cc23764e2e38da47ee959c604da2ef9e40f20",
+    "hinted/tower-tip": "2c870d0edcf4f59e0624b23506898c28a6cf95ebb1354bd90b2ab7810a84b4d5",
+    "hinted/tree": "494c443293e00ff8d1202cb008ffb698e2263a5ad0144daca7620fd6ffb85b69",
+    "rebuild/bridge": "06a0a0692044ecb48c6fa4d18095d2d5b64462cd2859951e123b29848e43d7cc",
+    "rebuild/chair": "3460d45cecee4e4bffd287d49eb3063cd3c6facdc3bd53abf9ede4074ce1fe95",
+    "rebuild/corner": "a1586be1c37ffc965178b394138b2981c19d3421571dc51f841f5b86836203e5",
+    "rebuild/hook": "7bb9db85414313b810b4f2c39a6ecb7a6a6f0832e26b4e187cb7ace69e7a51d9",
+    "rebuild/ledge": "49d9d24771d2744af1cb3fb90355d03a77dd811b7ab1476ddf0ffaecfdbac1cf",
+    "rebuild/pile": "b37801ee7261789cd203d2b86e3726365e664f4f8d153196fba9ed4e44c5caef",
+    "rebuild/snake": "2596626fa4c1417e7e1e78aad4a4a4b5fcced89dda023aa6f7e9ffa7c37cc60a",
+    "rebuild/stairs": "d8f25ebc9b183142f9ae1c037c9a572af99ffe3216a10a9ddc1a9932c030bbac",
+    "rebuild/tree": "0788d08ad5e1c943458de680e9df9a9d2b2afb425272cf6fdbbd6b47e1564f82",
+    "rebuild/twist": "bfdcd35d15a55058d9bd416c7b00f7a6d29441d6516e8ae15cec65a4667d5067",
+    "rebuild/wall": "1cc80c71a3e55745fcfe182e8fdb4d280b10d4eb0fb3afeeed3997accb5f5c3e",
+    "rotate/bridge-tip": "913b48ae89a11f5a7573cc550da2a895b29ca4761a8358be188c51416b057754",
+    "rotate/chair-half": "0f5a44133cde6065417f10525e7bcf4a7fbcd61587eda52dd868fc977e85a5a4",
+    "rotate/cube-turn": "7500de80128978172958e5fddeca49cefe750413ffab96542a731ca5a00368cc",
+    "rotate/hook-flip": "e3ee9273357da81064344086c60cd8a837214b0f1103ed8ab4dc14455aa85455",
+    "rotate/hook-mirror": "f5c25840e34e55685ac275640072b10a697a66c09d769c8323cea2eb4122c71c",
+    "rotate/hook-tip": "49fcda2f2d890ff5ec23c301922ec1a4660ffffcef0641a5af27bdf467b3dd24",
+    "rotate/hook-turn": "a85f34ce33069100d884550b0cfcfae80969201cd175a04e5c56001b9f11d1c1",
+    "rotate/plank-stand": "a50b2dd17826e6421de0f7a0dd4b74ff613a538885994fb84b39a2a3c3062a03",
+    "rotate/snake-half": "d2c7743b1632dd3d82dbaccde02202532ce7353e79c83e211b18d55028e11a15",
+    "rotate/stairs-mirror": "f058916e2abc962ce45d5efa34bf188e56fc28f8712d94018eff0c9dea359d2c",
+    "rotate/stairs-tip": "35cecc1051140a7455f7f7f7486b51af70ba6f367dff2bb95a0e67a9d35f632b",
+    "rotate/stairs-turn": "c076e1b6e861f278aa6f6a8b85c688fb8e617e27d88a737be41ea7e91c6a5679",
+    "rotate/tower-tip": "1b2641b1c15c9c42278c2f568971fff457d38bb769aab708d472fc91bf88f330",
+    "rotate/tree-turn": "6eca422b14699a9eefb806116ee3a9af4a2269c734a33ef4ff4de212c1b344e2",
+    "rotate/twist-two-step": "59c86c50af61689e6709985fa4b538a7bbdbbec16ac82729e05cb746f14e09d4",
+    "sticks/large-remove-108-leave-1": "b7df28985c4fca723ee3033b89e740e1348555a35f1a31735486e71b7b88e7b5",
+    "sticks/large-remove-75-leave-3": "43909b2a1bc0344675c69b3ead3370fe9a40fe3ab0fd4f979a69874491506fd1",
+    "sticks/large-remove-84-leave-3": "c61f4ab88400eb9449a9ee4bc29693f67a57bfe4bc7c9a3384622ccc936ccd77",
+    "sticks/large-remove-90-leave-2": "8d3e747ca584746cc98b5c31452bbcbdb3bbfd68a5c5327651142ea0e7edda02",
+    "sticks/large-remove-94-leave-3": "c35aa707afc090dd97699021d038be0a6ad938d67879ff9768b7a2fb504fed04",
+    "sticks/remove-12-leave-3": "5214e22523a326dd0b2d8bd55f8b2a47939e115e5717ee4d2a42a782ff388502",
+    "sticks/remove-2-leave-7": "620a5908a0b21f5938105ec959826a43f67d21d07394d0573aeedacfc6fe4d4e",
+    "sticks/remove-21-leave-2": "dcdb0e765d5a5c9222bd020388bb40accb8f27c8cdf28324dec8ceb9a0335aa0",
+    "sticks/remove-3-leave-7": "3262bbe00f31818981a5aac6d2cdbfd232efb6389e2d797997ce613457a035ba",
+    "sticks/remove-3-leave-8": "85b942cb46c62b46b042bc4189557731073a32d54515a3d4b5975030ee1c188a",
+    "sticks/remove-30-leave-1": "8a6be3b541f43e110ff066571c69123aa146802f137ffe60670bc3d4e76d2709",
+    "sticks/remove-4-leave-5": "4d43bc45636608aa2717b6b690512ece177ae77482be0fd1e02f65fc5008e6fd",
+    "sticks/remove-5-leave-6": "c0586ba1bf8bbd7ee21fca7d7ac30b2a7f41223f998228b99a2f1657d4eda87f",
+    "twoview/corner": "2b5abb2d63d7aab1c307d1c3e9e95aefb006d13cd5e854cb53a0577072a415b2",
+    "twoview/cube-turn": "ffbc71f33ec6cba96adaed6d89188537ee63449fd722cf142cc5d1b6ab159159",
+    "twoview/ledge": "02230b82801f8be15c184d45cc937e96fa500bfb3d986f5073c884d3a318415b",
+    "twoview/pile": "c093e379ebc6ab522bfb5ebddbc5e2651a7fe8ca8c949156b9e6ed6fe2ce67c0",
+    "twoview/solid": "3e73b3fb55417b8765fd010c884111a9c0680607df31f8a4b374fdd02589ddf8",
+    "twoview/tower-tip": "33cee8dc72b502140066ecb941e17a23c6408685dd97213566f189126b7f559c",
+    "twoview/wall-tip": "90aa408b008d6014810f760fef42a9151c5a1698e3d2c6a78e06ee87de87bd69",
+    "twoview/wall": "eee827ffe76441e7cefa9d9d5cb45416061eca5c75e5abec03c9d7a71a41728e",
+    "views/corner-4": "e86825179aab95a7235a074f0d1e9860843484b0d550b069a3e676f09914f70b",
+    "views/diagonal-3": "9f8ede5b38be6e11fac8f648d48781b15a1136aeb1c416bcc81983be6030f940",
+    "views/ell-5": "04e7861910737777d1e7aa096778972191cb211e63a4685c22fb6ac68918e3c6",
+    "views/ell-6": "a8827eb3d01efe71bd0ce076dba25f8de1b0f4b8032d83e5e1e13f6743b703c6",
+    "views/four-a-10": "090957979e1c0eee3a89a0a17ad6e2e117c87594d96fde0ccd1697720eaeb322",
+    "views/four-a-9": "54bd50e98df7b91bd1a255e838c72f9e55b966715030895be476d14539f6e4a4",
+    "views/four-b-10": "9ed08b74f763bc6f5ad00d91d2d0048e5e832d75a1335ba5891e2ca37dedab7d",
+    "views/four-b-16": "667e140b5189923d1a975e935ab0cd4c612f77b708552b1ee408f3f3e6cfbfcf",
+    "views/four-c-10": "ef837e0e888919e5437dc38f667674ca290e3caa81fd3fce7162eb8a20f82d70",
+    "views/full-8": "23543cfb829fa0cd4ff1436a7a9fafd5b7745e3e34ebaea70968e0dd1dbee17a",
+    "views/full-9": "b948a5ff147902c7d1863ab6c59a3c7e43acdd6dff1049a5f82d5446c8b83366"
+  },
+  "code": "01eb63ddb91d978851a2212ddd02bc26c527f28ec5243245fe7b5465430087a6",
+  "createdAt": "2026-10-16T07:21:58.478Z",
+  "commit": {
+    "sha": "b701fb3c994a88668c46bf6ced7e2ad24782432c",
+    "dirty": true
+  }
+}

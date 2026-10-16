@@ -1,0 +1,11 @@
+{
+  "prompt": "Build the structure in the two pictures, facing the same way. It can sit anywhere in the grid.\n\nThe first picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up. The second shows it from above the opposite corner, where x and z are smallest: x increases toward the upper left and z toward the upper right.",
+  "parent": "solid",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["solid-angled.png", "solid-behind.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "A block at (1, 1, 1) would be completely hidden in both pictures, so the pictures do not show whether it is there."
+  },
+  "alternatives": []
+}

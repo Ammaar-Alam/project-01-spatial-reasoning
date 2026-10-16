@@ -1,0 +1,47 @@
+{
+  "prompt": "The three pictures show one structure from three sides, without perspective. The first looks at its front, along -z, with x to the right and y up. The second looks at its side, along -x, with z to the left and y up. The third looks straight down, with x to the right and z toward the bottom of the picture.\n\nBuild a structure of exactly 10 blocks that looks like this from all three sides. It can sit anywhere in the grid.",
+  "parent": "views-fourB",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["four-b-10-front.png", "four-b-10-side.png", "four-b-10-top.png"],
+  "reference": {
+    "status": "solved",
+    "blocks": [
+      { "x": 0, "y": 0, "z": 0 },
+      { "x": 3, "y": 0, "z": 0 },
+      { "x": 2, "y": 0, "z": 2 },
+      { "x": 2, "y": 0, "z": 3 },
+      { "x": 1, "y": 1, "z": 1 },
+      { "x": 2, "y": 2, "z": 0 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 0, "y": 2, "z": 2 },
+      { "x": 2, "y": 2, "z": 3 },
+      { "x": 2, "y": 3, "z": 1 }
+    ]
+  },
+  "alternatives": [
+    [
+      { "x": 2, "y": 0, "z": 0 },
+      { "x": 3, "y": 0, "z": 0 },
+      { "x": 0, "y": 0, "z": 2 },
+      { "x": 2, "y": 0, "z": 3 },
+      { "x": 1, "y": 1, "z": 1 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 2, "y": 2, "z": 2 },
+      { "x": 2, "y": 2, "z": 3 },
+      { "x": 2, "y": 3, "z": 1 }
+    ],
+    [
+      { "x": 3, "y": 0, "z": 0 },
+      { "x": 0, "y": 0, "z": 2 },
+      { "x": 2, "y": 0, "z": 3 },
+      { "x": 1, "y": 1, "z": 1 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 2, "y": 2, "z": 0 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 2, "y": 2, "z": 2 },
+      { "x": 2, "y": 2, "z": 3 },
+      { "x": 2, "y": 3, "z": 1 }
+    ]
+  ]
+}

@@ -42,7 +42,8 @@ export type RunRecord = {
   // the provider accepted a background request, the next run keeps polling this id
   | { status: "started"; responseId: string }
   // the call failed and nothing was graded, responseId is set if a background request exists
-  | { status: "error"; error: string; responseId?: string }
+  // and usage if the provider billed a reply that was not an answer
+  | { status: "error"; error: string; responseId?: string; usage?: unknown }
 );
 
 // everything that must stay fixed for a run to be resumed
@@ -144,15 +145,25 @@ export async function runEval(options: RunOptions): Promise<RunRecord[]> {
         // a failed call is saved as an error, a bug in grading stops the run instead
         let reply: ModelReply | undefined;
         let error = "";
+        // a billed reply that is not an answer brings its usage along
+        let usage: unknown;
         try {
           reply = await call(config, request, { responseId, sending, started });
         } catch (cause) {
           error = cause instanceof Error ? cause.message : String(cause);
+          usage = (cause as { usage?: unknown } | null)?.usage;
         }
         const latencyMs = Date.now() - since;
         const record: RunRecord = reply
           ? { ...base(), latencyMs, status: "graded", ...reply, ...score(task, reply) }
-          : { ...base(), latencyMs, status: "error", error, ...(responseId ? { responseId } : {}) };
+          : {
+              ...base(),
+              latencyMs,
+              status: "error",
+              error,
+              ...(responseId ? { responseId } : {}),
+              ...(usage ? { usage } : {}),
+            };
 
         save(record);
         records.push(record);
