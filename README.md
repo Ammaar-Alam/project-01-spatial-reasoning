@@ -57,6 +57,17 @@ No other file or code changes. The path gives the task its id, for example `task
 
 The model sees the prompt, the grid size, the starting blocks, the images and every rule in `constraints`, so the prompt only needs to state the goal.
 
+The suite has four families so far:
+
+| Family | The model gets | It must |
+| --- | --- | --- |
+| `rebuild` | One picture of a block shape and an empty grid | Build the same shape, facing the same way |
+| `rotate` | One picture and an empty grid | Build the shape after a stated turn, tip, flip or mirror |
+| `sticks` | A frame of joints and sticks, as blocks and a picture | Remove an exact number of sticks so that an exact number of cubes, of any size, remain |
+| `views` | Front, side and top pictures without perspective | Build a structure with an exact number of blocks that has those three views |
+
+Some tasks have no solution: a block could be hidden from the camera, the turned shape does not fit the grid, or no structure meets the count. Their reference is `impossible`, and the same reply options are offered on every task. Where a task accepts more than one answer, such as a rotated shape placed anywhere in the grid, `alternatives` lists every accepted structure.
+
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `prompt` | yes | The instruction shown to the model |
