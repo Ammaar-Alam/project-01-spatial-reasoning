@@ -12,6 +12,10 @@ Each task gives a model a starting structure or images, a goal, and any constrai
 
 The suite covers spatial transformations, reconstruction from images and viewpoint changes, and constrained editing puzzles.
 
+## SpatialBench tasks
+
+[SpatialBench](docs/spatialbench.md) adds 32 construction puzzles, including packing, count-map reconstruction, camera-relative edits and optimal repairs. Its custom clue diagrams are distinct from the editor's 3D snapshots. The existing seven-model comparison is in `results/oct16-spatialbench/`; open it with the normal `pnpm editor` Results tab.
+
 ## Setup
 
 Requires Node.js 24.11 or newer and pnpm.
