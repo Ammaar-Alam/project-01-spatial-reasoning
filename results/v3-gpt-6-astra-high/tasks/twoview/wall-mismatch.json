@@ -1,0 +1,11 @@
+{
+  "prompt": "Build the structure in the two pictures, facing the same way. It can sit anywhere in the grid.\n\nThe first picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up. The second shows it from above the opposite corner, where x and z are smallest: x increases toward the upper left and z toward the upper right.",
+  "parent": "wall",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["wall-mismatch-angled.png", "wall-mismatch-behind.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "The first picture shows a block at (0, 3, 3), and the second picture shows that cell empty, so no one structure matches both pictures."
+  },
+  "alternatives": []
+}

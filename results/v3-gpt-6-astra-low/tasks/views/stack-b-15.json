@@ -1,0 +1,45 @@
+{
+  "prompt": "The three pictures show one structure from three sides, without perspective. The first looks at its front, along -z, with x to the right and y up. The second looks at its side, along -x, with z to the left and y up. The third looks straight down, with x to the right and z toward the bottom of the picture.\n\nBuild a structure of exactly 15 blocks that looks like this from all three sides, where every block rests on the floor or on another block. It can sit anywhere in the grid.",
+  "parent": "views-stackB",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["stack-b-15-front.png", "stack-b-15-side.png", "stack-b-15-top.png"],
+  "reference": {
+    "status": "solved",
+    "blocks": [
+      { "x": 0, "y": 0, "z": 0 },
+      { "x": 3, "y": 0, "z": 0 },
+      { "x": 1, "y": 0, "z": 1 },
+      { "x": 3, "y": 0, "z": 1 },
+      { "x": 0, "y": 0, "z": 2 },
+      { "x": 1, "y": 0, "z": 2 },
+      { "x": 3, "y": 0, "z": 2 },
+      { "x": 1, "y": 0, "z": 3 },
+      { "x": 2, "y": 0, "z": 3 },
+      { "x": 0, "y": 1, "z": 0 },
+      { "x": 3, "y": 1, "z": 1 },
+      { "x": 1, "y": 1, "z": 2 },
+      { "x": 2, "y": 1, "z": 3 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 1, "y": 2, "z": 2 }
+    ]
+  },
+  "alternatives": [
+    [
+      { "x": 0, "y": 0, "z": 0 },
+      { "x": 3, "y": 0, "z": 0 },
+      { "x": 1, "y": 0, "z": 1 },
+      { "x": 3, "y": 0, "z": 1 },
+      { "x": 0, "y": 0, "z": 2 },
+      { "x": 1, "y": 0, "z": 2 },
+      { "x": 3, "y": 0, "z": 2 },
+      { "x": 1, "y": 0, "z": 3 },
+      { "x": 2, "y": 0, "z": 3 },
+      { "x": 0, "y": 1, "z": 0 },
+      { "x": 1, "y": 1, "z": 1 },
+      { "x": 3, "y": 1, "z": 2 },
+      { "x": 2, "y": 1, "z": 3 },
+      { "x": 1, "y": 2, "z": 1 },
+      { "x": 3, "y": 2, "z": 2 }
+    ]
+  ]
+}

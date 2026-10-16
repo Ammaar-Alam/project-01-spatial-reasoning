@@ -1,0 +1,48 @@
+{
+  "attempts": 1,
+  "system": "You solve spatial reasoning tasks on a 3D grid of unit blocks.\n\nEach block fills one cell with integer coordinates x, y and z. The y axis points up and y = 0 is the bottom layer. The x and z axes are horizontal.\n\nReply with exactly one JSON object and nothing else.\n\nIf the task can be done, give the complete final structure. List every block that exists at the end, including starting blocks you keep:\n{\"status\": \"solved\", \"blocks\": [{\"x\": 0, \"y\": 0, \"z\": 0}]}\n\nIf the task cannot be done under its rules, or it does not give enough information to complete it as asked, say so instead:\n{\"status\": \"impossible\", \"reason\": \"one short sentence\"}",
+  "models": {
+    "gpt-6-astra-low": {
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "params": {
+        "max_output_tokens": 128000,
+        "reasoning": {
+          "effort": "low"
+        },
+        "background": true,
+        "store": true
+      }
+    }
+  },
+  "tasks": {
+    "repair/bridge": "e446c23fabd89423f8240c6eb8fb866b56f71ae4733fe148a5ed7d0af4da57f8",
+    "repair/pile": "cc89c52a7e77613ea696ff6d988364864d5ced56112e3c8d88222c3de5027d6b",
+    "repair/tree": "73300a72d783919524fc32ede65857637c14c0a1b5116cbcf706a59f32db3755",
+    "rotate/chair-diagonal": "b00438edff975e672405b3ff385374985169117aeffdd9da891b95148346f173",
+    "rotate/hook-diagonal": "97e9e63a2869777622a5988cb6c582fdc79288a553a5bf0a44c228e705a77f87",
+    "rotate/stairs-diagonal": "b999bc3d181c267f7e9f04c0315f2300d7a7b1a557f33b784a5a87437cc400fd",
+    "rotate/tree-three-step": "dfc5083597e42ae3355ce3f825fdd1281a00b983f58f85cc2d55756040fc0fb0",
+    "sticks/move-2-make-3": "46f47bf45a679598b09d2903aa875487742f35a82ca0ed51a85225e81bafc6f5",
+    "sticks/move-3-make-2": "23ddfdb87c618ee3601b27b0b53205adfa55d59a97523b39334fcff268f66637",
+    "sticks/move-3-make-3": "0a56b103b83d125b4b712fb442d3ae19e3993d2fdc4be603438677987a025477",
+    "sticks/move-3-make-4": "28260aea652163b6eb670f29ea4bed327ba88115a241332fb3c00f5bf1e20f42",
+    "twoview/box-a": "7a6ccac0c151607ab9e8bc262063a574be7e580caa4abba05bca19e06ec54b08",
+    "twoview/box-b": "a0d642d6f66b9e6e342c82ceb7cc47163b8e11a46172f18e16f623943a1c91e2",
+    "twoview/ledge-mismatch": "52bdedc7a57601e12c81853199da8fc17b26ede743fb9340ad11c2618817cb9e",
+    "twoview/pile-diagonal": "74798ce41c7f116d3f3a070f9baa08320ac733eb06651aecac63ccb951b38835",
+    "twoview/wall-mismatch": "66193cf4fc9ceab98ad2fed2e29c840c7b414d91318c36b8bcfc3da54941a16f",
+    "views/diagonal-support-3": "567c8c2d48a3d0e73165573579cd365ea1c0a5d9e7ac647f8ea2481ea8764ced",
+    "views/ell-support-6": "9fc791ba8c0e89a2e11d9535b33e7301dffc73360587c901ff72ea47888703df",
+    "views/ell-support-7": "df34a321413fc72072e68f678048f34fc716eea75db4545b216afe302b32f0c1",
+    "views/stack-a-17": "9552300663e6c4f501b8236da30d5784fb64624d1cd191b37e072f1571383c68",
+    "views/stack-a-18": "0c46108247d5747ba84eb61586fafa0c26471797c92cbbd907a5475c13a07c78",
+    "views/stack-b-15": "503cd1b8f3e3248f4f83dafb9913d47b0dafaa6e885d17e34ea1fa7f69bb5658"
+  },
+  "code": "01eb63ddb91d978851a2212ddd02bc26c527f28ec5243245fe7b5465430087a6",
+  "createdAt": "2026-10-16T08:15:08.391Z",
+  "commit": {
+    "sha": "f7e0bfe792b2c3f7764676274420e8d429cc12e1",
+    "dirty": true
+  }
+}

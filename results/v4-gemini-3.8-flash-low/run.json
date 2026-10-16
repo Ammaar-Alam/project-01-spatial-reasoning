@@ -1,0 +1,34 @@
+{
+  "attempts": 1,
+  "system": "You solve spatial reasoning tasks on a 3D grid of unit blocks.\n\nEach block fills one cell with integer coordinates x, y and z. The y axis points up and y = 0 is the bottom layer. The x and z axes are horizontal.\n\nReply with exactly one JSON object and nothing else.\n\nIf the task can be done, give the complete final structure. List every block that exists at the end, including starting blocks you keep:\n{\"status\": \"solved\", \"blocks\": [{\"x\": 0, \"y\": 0, \"z\": 0}]}\n\nIf the task cannot be done under its rules, or it does not give enough information to complete it as asked, say so instead:\n{\"status\": \"impossible\", \"reason\": \"one short sentence\"}",
+  "models": {
+    "gemini-3.8-flash-low": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "params": {
+        "generationConfig": {
+          "maxOutputTokens": 65536,
+          "thinkingConfig": {
+            "thinkingLevel": "low"
+          }
+        }
+      }
+    }
+  },
+  "tasks": {
+    "repair/heap": "6bf16befe417959ba76d566e271cbbe12d73ad67479d8e5ad864c1b4fac11d50",
+    "sticks/large-move-3-make-2": "d66c76b249f65f080a19d8728199c72804cba70b26bfe15ae4b80681d54ce2b7",
+    "sticks/large-move-3-make-3": "ea68832b1d9005c31531d202f775fe096c0f496942e1aa46ac644b2853ca7137",
+    "twoview/heap-turn": "6488d7c8329676a9e0eeaa75b417eb2563d50460460a07550fe44a7a2bb7b7c2",
+    "twoview/heap": "1df841ac58661aef5097aa1e4050c40d9b955d4d7619e928929d4d4e8d3d188c",
+    "twoview/spire-tip": "21998c1774d4ea898364299fd5b9d47386be01a9f42842816302c964edbd5fc5",
+    "twoview/spire": "2d8e76bf09625ca6f55f64bc4880f8ff3b6c2e1e7b7a794cacdca6ac718b335c",
+    "twoview/terrace": "889aa0c458458a8aca4094e5b628e06907447f67402a72f9dbfd60c7b966af1a"
+  },
+  "code": "01eb63ddb91d978851a2212ddd02bc26c527f28ec5243245fe7b5465430087a6",
+  "createdAt": "2026-10-16T08:30:52.811Z",
+  "commit": {
+    "sha": "43180f50cd6f67bae16e31cdebff4dbc2134eee5",
+    "dirty": false
+  }
+}

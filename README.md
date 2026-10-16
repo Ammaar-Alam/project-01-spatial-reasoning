@@ -57,16 +57,17 @@ No other file or code changes. The path gives the task its id, for example `task
 
 The model sees the prompt, the grid size, the starting blocks, the images and every rule in `constraints`, so the prompt only needs to state the goal.
 
-The suite has six families so far:
+The suite has seven families so far:
 
 | Family | The model gets | It must |
 | --- | --- | --- |
 | `rebuild` | One picture of a block shape and an empty grid | Build the same shape, facing the same way |
-| `rotate` | One picture and an empty grid | Build the shape after a stated turn, tip, flip or mirror |
-| `twoview` | Two pictures from opposite corners and an empty grid | Build the shape, or turn it, using both pictures |
+| `rotate` | One picture and an empty grid | Build the shape after a stated turn, tip, flip or mirror, including a third of a turn about the grid's diagonal |
+| `twoview` | Two pictures from opposite corners and an empty grid | Build or turn the shape, or build only the cubes missing from a box. Some pairs of pictures cannot show one structure |
 | `hinted` | One picture, with a note that parts of a structure can be hidden | Build or turn the shape, or say the picture leaves it in doubt |
-| `sticks` | A frame of joints and sticks, 2 or 3 cubes wide, as blocks and a picture | Remove an exact number of sticks so that an exact number of cubes, of any size, remain |
-| `views` | Front, side and top pictures without perspective | Build a structure with an exact number of blocks that has those three views |
+| `sticks` | A frame of joints and sticks, 2 or 3 cubes wide, as blocks and a picture | Remove or move an exact number of sticks so that an exact number of cubes, of any size, remain |
+| `views` | Front, side and top pictures without perspective | Build a structure with an exact number of blocks that has those three views, in some tasks with every block resting on the floor or another block |
+| `repair` | One or two pictures and a block list with a few mistakes | Fix the list, within an edit budget, so it matches the picture |
 
 Some tasks have no solution: a block could be hidden from the camera, the turned shape does not fit the grid, or no structure meets the count. Their reference is `impossible`, and the same reply options are offered on every task. Where a task accepts more than one answer, such as a rotated shape placed anywhere in the grid, `alternatives` lists every accepted structure.
 
