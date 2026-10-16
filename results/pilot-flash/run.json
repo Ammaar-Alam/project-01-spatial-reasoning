@@ -1,0 +1,39 @@
+{
+  "attempts": 3,
+  "system": "You solve spatial reasoning tasks on a 3D grid of unit blocks.\n\nEach block fills one cell with integer coordinates x, y and z. The y axis points up and y = 0 is the bottom layer. The x and z axes are horizontal.\n\nReply with exactly one JSON object and nothing else.\n\nIf the task can be done, give the complete final structure. List every block that exists at the end, including starting blocks you keep:\n{\"status\": \"solved\", \"blocks\": [{\"x\": 0, \"y\": 0, \"z\": 0}]}\n\nIf the task cannot be done under its rules, or it does not give enough information to complete it as asked, say so instead:\n{\"status\": \"impossible\", \"reason\": \"one short sentence\"}",
+  "models": {
+    "gemini-3.8-flash": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "params": {
+        "generationConfig": {
+          "maxOutputTokens": 65536,
+          "thinkingConfig": {
+            "thinkingLevel": "high"
+          }
+        }
+      }
+    }
+  },
+  "tasks": {
+    "rebuild/chair": "3460d45cecee4e4bffd287d49eb3063cd3c6facdc3bd53abf9ede4074ce1fe95",
+    "rebuild/corner": "a1586be1c37ffc965178b394138b2981c19d3421571dc51f841f5b86836203e5",
+    "rebuild/hook": "7bb9db85414313b810b4f2c39a6ecb7a6a6f0832e26b4e187cb7ace69e7a51d9",
+    "rebuild/stairs": "d8f25ebc9b183142f9ae1c037c9a572af99ffe3216a10a9ddc1a9932c030bbac",
+    "rebuild/twist": "bfdcd35d15a55058d9bd416c7b00f7a6d29441d6516e8ae15cec65a4667d5067",
+    "rotate/chair-half": "0f5a44133cde6065417f10525e7bcf4a7fbcd61587eda52dd868fc977e85a5a4",
+    "rotate/cube-turn": "7500de80128978172958e5fddeca49cefe750413ffab96542a731ca5a00368cc",
+    "rotate/hook-turn": "a85f34ce33069100d884550b0cfcfae80969201cd175a04e5c56001b9f11d1c1",
+    "rotate/plank-stand": "a50b2dd17826e6421de0f7a0dd4b74ff613a538885994fb84b39a2a3c3062a03",
+    "rotate/stairs-tip": "35cecc1051140a7455f7f7f7486b51af70ba6f367dff2bb95a0e67a9d35f632b",
+    "rotate/stairs-turn": "c076e1b6e861f278aa6f6a8b85c688fb8e617e27d88a737be41ea7e91c6a5679",
+    "rotate/tower-tip": "1b2641b1c15c9c42278c2f568971fff457d38bb769aab708d472fc91bf88f330",
+    "rotate/twist-two-step": "59c86c50af61689e6709985fa4b538a7bbdbbec16ac82729e05cb746f14e09d4"
+  },
+  "code": "01eb63ddb91d978851a2212ddd02bc26c527f28ec5243245fe7b5465430087a6",
+  "createdAt": "2026-10-16T05:34:53.416Z",
+  "commit": {
+    "sha": "2f82913156502dcc42c08a5067260ba6dde86015",
+    "dirty": true
+  }
+}
