@@ -319,6 +319,17 @@ test("saves failed calls as errors and retries only those on the next run", asyn
   assert.deepEqual(done.calls, []);
 });
 
+test("keeps the usage of a billed reply that was not an answer", async () => {
+  const setup = await fixture();
+  const usage = { cost: 0.25 };
+  await run(setup, async () => {
+    throw Object.assign(new Error("stopped with no finish reason"), { usage });
+  });
+  const saved = await readRecords(path.join(setup.dir, "records.jsonl"));
+  assert.equal(saved.length, 8);
+  for (const record of saved) assert.deepEqual(record.status === "error" && record.usage, usage);
+});
+
 test("refuses to resume a run with different settings or changed tasks", async () => {
   const setup = await fixture();
   const { call } = fakeModels();
