@@ -26,6 +26,24 @@
       "output_config": { "effort": "low" }
     }
   },
+  "claude-opus-5-5-high-openrouter": {
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-5.5",
+    "params": {
+      "max_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "provider": { "require_parameters": true }
+    }
+  },
+  "claude-opus-5-5-low-openrouter": {
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-5.5",
+    "params": {
+      "max_tokens": 128000,
+      "reasoning": { "effort": "low" },
+      "provider": { "require_parameters": true }
+    }
+  },
   "gpt-6.1-sol": {
     "provider": "openai",
     "model": "gpt-6.1-sol",
