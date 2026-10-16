@@ -1,0 +1,11 @@
+{
+  "prompt": "The three pictures show one structure from three sides, without perspective. The first looks at its front, along -z, with x to the right and y up. The second looks at its side, along -x, with z to the left and y up. The third looks straight down, with x to the right and z toward the bottom of the picture.\n\nBuild a structure of exactly 9 blocks that looks like this from all three sides. It can sit anywhere in the grid.",
+  "parent": "views-fourA",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["four-a-9-front.png", "four-a-9-side.png", "four-a-9-top.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "A structure with these three views has 10 to 15 blocks, never 9."
+  },
+  "alternatives": []
+}
