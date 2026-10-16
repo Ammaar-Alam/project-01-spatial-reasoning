@@ -8,12 +8,50 @@
       "output_config": { "effort": "max" }
     }
   },
+  "claude-opus-5-5-high": {
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "params": {
+      "max_tokens": 128000,
+      "thinking": { "type": "adaptive" },
+      "output_config": { "effort": "high" }
+    }
+  },
+  "claude-opus-5-5-low": {
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "params": {
+      "max_tokens": 128000,
+      "thinking": { "type": "adaptive" },
+      "output_config": { "effort": "low" }
+    }
+  },
   "gpt-6.1-sol": {
     "provider": "openai",
     "model": "gpt-6.1-sol",
     "params": {
       "max_output_tokens": 128000,
       "reasoning": { "effort": "max", "mode": "pro" },
+      "background": true,
+      "store": true
+    }
+  },
+  "gpt-6-astra-high": {
+    "provider": "openai",
+    "model": "gpt-6-astra",
+    "params": {
+      "max_output_tokens": 128000,
+      "reasoning": { "effort": "high" },
+      "background": true,
+      "store": true
+    }
+  },
+  "gpt-6-astra-low": {
+    "provider": "openai",
+    "model": "gpt-6-astra",
+    "params": {
+      "max_output_tokens": 128000,
+      "reasoning": { "effort": "low" },
       "background": true,
       "store": true
     }
