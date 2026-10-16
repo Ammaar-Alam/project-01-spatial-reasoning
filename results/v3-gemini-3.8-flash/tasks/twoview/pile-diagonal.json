@@ -1,0 +1,39 @@
+{
+  "prompt": "Build the structure in the two pictures after turning it a third of a turn about the line through the grid corner where x, y and z are smallest and the corner where they are largest. Seen from the corner where they are largest, the turn is counterclockwise, so the side that faced +x faces +y. It can sit anywhere in the grid.\n\nThe first picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up. The second shows it from above the opposite corner, where x and z are smallest: x increases toward the upper left and z toward the upper right.",
+  "parent": "pile",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["pile-diagonal-angled.png", "pile-diagonal-behind.png"],
+  "reference": {
+    "status": "solved",
+    "blocks": [
+      { "x": 1, "y": 0, "z": 0 },
+      { "x": 0, "y": 1, "z": 0 },
+      { "x": 1, "y": 1, "z": 0 },
+      { "x": 2, "y": 1, "z": 0 },
+      { "x": 1, "y": 1, "z": 1 },
+      { "x": 2, "y": 1, "z": 1 },
+      { "x": 3, "y": 1, "z": 1 },
+      { "x": 3, "y": 1, "z": 2 },
+      { "x": 2, "y": 2, "z": 0 },
+      { "x": 2, "y": 2, "z": 2 },
+      { "x": 3, "y": 2, "z": 2 },
+      { "x": 3, "y": 2, "z": 3 }
+    ]
+  },
+  "alternatives": [
+    [
+      { "x": 1, "y": 1, "z": 0 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 1, "y": 2, "z": 0 },
+      { "x": 2, "y": 2, "z": 0 },
+      { "x": 1, "y": 2, "z": 1 },
+      { "x": 2, "y": 2, "z": 1 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 3, "y": 2, "z": 2 },
+      { "x": 2, "y": 3, "z": 0 },
+      { "x": 2, "y": 3, "z": 2 },
+      { "x": 3, "y": 3, "z": 2 },
+      { "x": 3, "y": 3, "z": 3 }
+    ]
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "prompt": "Build the structure in the picture after these changes, in this order. First turn it a quarter turn clockwise, as seen from above. Then tip it over with a quarter turn about the x axis, so the side that faced up (+y) faces +z. Then mirror it so that x is reversed and y and z stay the same. It can sit anywhere in the grid.\n\nThe picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up.",
+  "parent": "tree",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["tree-three-step.png"],
+  "reference": {
+    "status": "solved",
+    "blocks": [
+      { "x": 0, "y": 0, "z": 2 },
+      { "x": 0, "y": 0, "z": 3 },
+      { "x": 0, "y": 1, "z": 0 },
+      { "x": 0, "y": 1, "z": 3 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 0, "y": 2, "z": 1 },
+      { "x": 1, "y": 2, "z": 1 },
+      { "x": 2, "y": 2, "z": 1 },
+      { "x": 0, "y": 2, "z": 2 },
+      { "x": 0, "y": 2, "z": 3 }
+    ]
+  },
+  "alternatives": [
+    [
+      { "x": 1, "y": 0, "z": 2 },
+      { "x": 1, "y": 0, "z": 3 },
+      { "x": 1, "y": 1, "z": 0 },
+      { "x": 1, "y": 1, "z": 3 },
+      { "x": 1, "y": 2, "z": 0 },
+      { "x": 1, "y": 2, "z": 1 },
+      { "x": 2, "y": 2, "z": 1 },
+      { "x": 3, "y": 2, "z": 1 },
+      { "x": 1, "y": 2, "z": 2 },
+      { "x": 1, "y": 2, "z": 3 }
+    ],
+    [
+      { "x": 0, "y": 1, "z": 2 },
+      { "x": 0, "y": 1, "z": 3 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 0, "y": 2, "z": 3 },
+      { "x": 0, "y": 3, "z": 0 },
+      { "x": 0, "y": 3, "z": 1 },
+      { "x": 1, "y": 3, "z": 1 },
+      { "x": 2, "y": 3, "z": 1 },
+      { "x": 0, "y": 3, "z": 2 },
+      { "x": 0, "y": 3, "z": 3 }
+    ],
+    [
+      { "x": 1, "y": 1, "z": 2 },
+      { "x": 1, "y": 1, "z": 3 },
+      { "x": 1, "y": 2, "z": 0 },
+      { "x": 1, "y": 2, "z": 3 },
+      { "x": 1, "y": 3, "z": 0 },
+      { "x": 1, "y": 3, "z": 1 },
+      { "x": 2, "y": 3, "z": 1 },
+      { "x": 3, "y": 3, "z": 1 },
+      { "x": 1, "y": 3, "z": 2 },
+      { "x": 1, "y": 3, "z": 3 }
+    ]
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "prompt": "The three pictures show one structure from three sides, without perspective. The first looks at its front, along -z, with x to the right and y up. The second looks at its side, along -x, with z to the left and y up. The third looks straight down, with x to the right and z toward the bottom of the picture.\n\nBuild a structure of exactly 6 blocks that looks like this from all three sides, where every block rests on the floor or on another block. It can sit anywhere in the grid.",
+  "parent": "views-ell",
+  "size": { "x": 3, "y": 3, "z": 3 },
+  "images": ["ell-support-6-front.png", "ell-support-6-side.png", "ell-support-6-top.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "A structure with these three views and every block resting on the floor or on another block has 7 blocks, never 6."
+  },
+  "alternatives": []
+}

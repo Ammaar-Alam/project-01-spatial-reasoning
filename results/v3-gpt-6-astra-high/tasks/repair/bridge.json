@@ -1,0 +1,33 @@
+{
+  "prompt": "The starting blocks are meant to be the structure in the picture, but a few of them are wrong. Change them so the structure matches the picture exactly, in the same place in the grid.\n\nThe picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up.",
+  "parent": "bridge",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "initial": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 1, "y": 0, "z": 0 },
+    { "x": 2, "y": 0, "z": 0 },
+    { "x": 2, "y": 0, "z": 1 },
+    { "x": 2, "y": 0, "z": 2 },
+    { "x": 0, "y": 1, "z": 0 },
+    { "x": 2, "y": 1, "z": 0 },
+    { "x": 0, "y": 2, "z": 0 },
+    { "x": 2, "y": 2, "z": 0 }
+  ],
+  "images": ["bridge.png"],
+  "constraints": { "maxEdits": 2 },
+  "reference": {
+    "status": "solved",
+    "blocks": [
+      { "x": 0, "y": 0, "z": 0 },
+      { "x": 2, "y": 0, "z": 0 },
+      { "x": 2, "y": 0, "z": 1 },
+      { "x": 2, "y": 0, "z": 2 },
+      { "x": 0, "y": 1, "z": 0 },
+      { "x": 2, "y": 1, "z": 0 },
+      { "x": 0, "y": 2, "z": 0 },
+      { "x": 1, "y": 2, "z": 0 },
+      { "x": 2, "y": 2, "z": 0 }
+    ]
+  },
+  "alternatives": []
+}

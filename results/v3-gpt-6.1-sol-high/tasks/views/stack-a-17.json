@@ -1,0 +1,11 @@
+{
+  "prompt": "The three pictures show one structure from three sides, without perspective. The first looks at its front, along -z, with x to the right and y up. The second looks at its side, along -x, with z to the left and y up. The third looks straight down, with x to the right and z toward the bottom of the picture.\n\nBuild a structure of exactly 17 blocks that looks like this from all three sides, where every block rests on the floor or on another block. It can sit anywhere in the grid.",
+  "parent": "views-stackA",
+  "size": { "x": 4, "y": 4, "z": 4 },
+  "images": ["stack-a-17-front.png", "stack-a-17-side.png", "stack-a-17-top.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "A structure with these three views and every block resting on the floor or on another block has 18 to 27 blocks, never 17."
+  },
+  "alternatives": []
+}
