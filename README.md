@@ -57,13 +57,15 @@ No other file or code changes. The path gives the task its id, for example `task
 
 The model sees the prompt, the grid size, the starting blocks, the images and every rule in `constraints`, so the prompt only needs to state the goal.
 
-The suite has four families so far:
+The suite has six families so far:
 
 | Family | The model gets | It must |
 | --- | --- | --- |
 | `rebuild` | One picture of a block shape and an empty grid | Build the same shape, facing the same way |
 | `rotate` | One picture and an empty grid | Build the shape after a stated turn, tip, flip or mirror |
-| `sticks` | A frame of joints and sticks, as blocks and a picture | Remove an exact number of sticks so that an exact number of cubes, of any size, remain |
+| `twoview` | Two pictures from opposite corners and an empty grid | Build the shape, or turn it, using both pictures |
+| `hinted` | One picture, with a note that parts of a structure can be hidden | Build or turn the shape, or say the picture leaves it in doubt |
+| `sticks` | A frame of joints and sticks, 2 or 3 cubes wide, as blocks and a picture | Remove an exact number of sticks so that an exact number of cubes, of any size, remain |
 | `views` | Front, side and top pictures without perspective | Build a structure with an exact number of blocks that has those three views |
 
 Some tasks have no solution: a block could be hidden from the camera, the turned shape does not fit the grid, or no structure meets the count. Their reference is `impossible`, and the same reply options are offered on every task. Where a task accepts more than one answer, such as a rotated shape placed anywhere in the grid, `alternatives` lists every accepted structure.
@@ -161,6 +163,7 @@ Once a task is saved, Snapshot saves the current layer as a 1024 by 768 PNG next
 | Side | Looks along -x, z to the left and y up, without perspective |
 | Top | Looks straight down, x to the right and z down the image, without perspective |
 | Angled | From the +x, +y, +z corner, with perspective |
+| Behind | From the -x, +y, -z corner, with perspective, so it sees the faces Angled cannot |
 
 **Results** opens any run in `results/` without calling a model. Each attempt is drawn over the closest correct structure: matching blocks in blue, missing blocks as red outlines, extra blocks in amber. The prompt, images, failures and raw reply sit beside it.
 
