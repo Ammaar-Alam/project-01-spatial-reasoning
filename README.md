@@ -16,6 +16,22 @@ The suite covers spatial transformations, reconstruction from images and viewpoi
 
 [SpatialBench](docs/spatialbench.md) adds 32 construction puzzles, including packing, count-map reconstruction, camera-relative edits and optimal repairs. Its custom clue diagrams are distinct from the editor's 3D snapshots. The existing seven-model comparison is in `results/oct16-spatialbench/`; open it with the normal `pnpm editor` Results tab.
 
+## Results
+
+The [report](report/report.pdf) covers the design and every score. Each run in `results/` is named for its task set and model setting:
+
+| Runs | Tasks |
+| --- | --- |
+| `v2-*` | The first 64 tasks |
+| `v3-*`, `v4-*` | 30 harder tasks |
+| `v5-*` | The 24 evaluated SpatialBench puzzles |
+
+To rerun a setting on the same tasks as an earlier run:
+
+```sh
+pnpm bench --name rerun-v2 --models gpt-6-astra-high --tasks "$(node -p "Object.keys(require('./results/v2-gpt-6-astra-high/run.json').tasks).join()")"
+```
+
 ## Setup
 
 Requires Node.js 24.11 or newer and pnpm.
