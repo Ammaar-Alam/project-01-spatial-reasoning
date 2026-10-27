@@ -1,0 +1,50 @@
+{
+  "attempts": 1,
+  "system": "You solve spatial reasoning tasks on a 3D grid of unit blocks.\n\nEach block fills one cell with integer coordinates x, y and z. The y axis points up and y = 0 is the bottom layer. The x and z axes are horizontal.\n\nReply with exactly one JSON object and nothing else.\n\nIf the task can be done, give the complete final structure. List every block that exists at the end, including starting blocks you keep:\n{\"status\": \"solved\", \"blocks\": [{\"x\": 0, \"y\": 0, \"z\": 0}]}\n\nIf the task cannot be done under its rules, or it does not give enough information to complete it as asked, say so instead:\n{\"status\": \"impossible\", \"reason\": \"one short sentence\"}",
+  "models": {
+    "gpt-6.1-sol-high": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "params": {
+        "max_output_tokens": 128000,
+        "reasoning": {
+          "effort": "high"
+        },
+        "background": true,
+        "store": true
+      }
+    }
+  },
+  "tasks": {
+    "reconstruction/adversarial-scans-02": "cf6dcc822942fec42164b8badd590bc665a79df91154b1d42c85a3ae17709621",
+    "reconstruction/adversarial-scans-04": "cc54a58ffafe54be81f9531fc0c3d106d3313ba067686f0090d119873fe5b7f2",
+    "reconstruction/adversarial-scans-05": "d3688fa8b9a33e72bcd1f05a7218cf14c7e7e6583283d4e4b8e4234fd6f8a7f2",
+    "reconstruction/adversarial-scans-06": "653bf367131b60a6c5874dd1e16951c84385df69fed7002f5c17bfa98492891e",
+    "reconstruction/adversarial-scans-07": "042e2ded5ca921fe10b6ba80317d7f1fd2868dbe99fef3995cf31dbdaea90ba7",
+    "reconstruction/adversarial-scans-08": "54e025f348b9f86a6ecd5659b107c07f5b87c2caa55cdad005fdc4a227d1a8ca",
+    "repair/eight-terminal-fabric-02": "de4a1b960f55679c58479ba42df9ab48fd17b99c728a517923e17caa3696438a",
+    "repair/eight-terminal-fabric-03": "3a5fcd8e6a619b35e1813a87b40a3fa76de652fa09aecdb39f873bfe1adbaae5",
+    "repair/eight-terminal-fabric-04": "7b78fdd60046f6125ff3afe8656fb1760d954ecdfc26431a4c8a1ac46f75f883",
+    "repair/three-way-firebreak-02": "0b3bda4a6ed2163ae4c4369ee9c6a0e82a205939b8625d6e160c8529a9f33b21",
+    "repair/three-way-firebreak-03": "6fc9f1ba2dadbaf4cffc40a79f83bfdde945320c595fa53dbb46d59169a00b37",
+    "repair/three-way-firebreak-04": "5e855fbc9fa3135927084d4b8019e9535da71955e76e8ef77cb03efef4ef62cd",
+    "transform/interlock-02": "5acb4387790aab914f0640d2749374931e3254dfe53112318f936c52bf6748af",
+    "transform/interlock-03": "9b55005ffa852ea2d94bde29f160d91fd50b920158f85fcb270d3664e7b4904b",
+    "transform/interlock-04": "40402d0069b7457519aa626961b9c0e8524e540350be30069a773508649245fc",
+    "transform/interlock-06": "fede0515c8d27b8b165188a31b4f78cd197596534090485c7246b004554adf11",
+    "transform/interlock-07": "2f1b5525c32b51dc7628f281cb9273b4f81d2d8ffcff149ef7c04a4b836b8b62",
+    "transform/interlock-08": "acb352a6cfa6260a3baafcba4bf1dbbdbb2dc4012c61dadcb17697b1099ac42b",
+    "viewpoint/occlusion-cascade-02": "83e9e8fa3ce96b31a432bb582164606d95588478e32426a36de49233a2422dc8",
+    "viewpoint/occlusion-cascade-04": "55ea400ca159b732696f2c7f80206f2261e4f9297d2ccc42ca89522499b975c5",
+    "viewpoint/occlusion-cascade-05": "170f871ef991ab5eb7a911ebdaa8736837221e7e21512f2183b1b9c149715550",
+    "viewpoint/occlusion-cascade-06": "7d0e717b060d0dd08390e9ca8ab7c045351e228121e5111d3775296d3b64479e",
+    "viewpoint/occlusion-cascade-07": "825e5dabcc69b7f7da5492335f849289f7968e60b64a9393f00b09ad95d5d94c",
+    "viewpoint/occlusion-cascade-08": "514ba9816ac7ce8d815f65e358e24b6e93952f9ca22d86685eb8be89e538118a"
+  },
+  "code": "01eb63ddb91d978851a2212ddd02bc26c527f28ec5243245fe7b5465430087a6",
+  "createdAt": "2026-10-16T17:21:18.048Z",
+  "commit": {
+    "sha": "91a5ad5617019c11cb9a31e9e0cff799646faee1",
+    "dirty": true
+  }
+}
