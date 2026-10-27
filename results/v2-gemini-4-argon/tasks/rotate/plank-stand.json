@@ -1,0 +1,11 @@
+{
+  "prompt": "Build the structure in the picture after standing it on end with a quarter turn about the z axis, so the side that faced +x faces up (+y). It can sit anywhere in the grid.\n\nThe picture shows the grid from above the corner where x and z are largest: x increases toward the lower right of the picture, z toward the lower left, and y points up.",
+  "parent": "plank",
+  "size": { "x": 4, "y": 2, "z": 3 },
+  "images": ["plank-stand.png"],
+  "reference": {
+    "status": "impossible",
+    "reason": "Turned that way the structure is 2 by 4 by 3 (x by y by z) and does not fit in the grid."
+  },
+  "alternatives": []
+}
