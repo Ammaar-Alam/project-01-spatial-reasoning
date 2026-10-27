@@ -18,7 +18,7 @@ The suite covers spatial transformations, reconstruction from images and viewpoi
 
 ## Results
 
-The [report](report/report.pdf) covers the design and every score. Each run in `results/` is named for its task set and model setting:
+Each run in `results/` is named for its task set and model setting:
 
 | Runs | Tasks |
 | --- | --- |
