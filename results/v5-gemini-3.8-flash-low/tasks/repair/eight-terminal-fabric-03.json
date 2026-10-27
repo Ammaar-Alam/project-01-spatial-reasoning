@@ -1,0 +1,21 @@
+{
+  "prompt": "EIGHT-TERMINAL FABRIC 3. Connect all eight initial terminal blocks into one face-connected structure using the fewest additions possible, staying entirely within the allowed-cell mask. All initial terminals must remain. Cells outside the mask are forbidden even if the native grid permits them. No orphan components. A final structure must attain the global minimum number of added blocks AND meet maxEdits; any globally minimal structure is accepted. The mask is given as world z layers, x right and y up. Diagram rows increase upward and columns rightward; indices are printed. Occupancy panels use dark=filled, white=empty. Count panels print each integer and that many small pips below it; a gray ? is an unobserved count, not zero. Marker panels label colored cells A,B,C,D,E,F. The public diagram rectangles only describe layout, not cell values. \nData:\n{\"mechanism\":\"steiner-network\",\"n\":7,\"terminals\":[[0,0,0],[0,4,2],[2,2,2],[2,2,4],[4,0,4],[4,2,0],[4,4,2],[6,4,0]],\"diagrams\":[{\"id\":\"allowed-z0\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[42,38],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z1\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[322,38],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z2\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[602,38],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z3\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[42,288],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z4\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[322,288],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z5\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[602,288],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"},{\"id\":\"allowed-z6\",\"image\":\"eight-terminal-fabric-03-corridors.png\",\"origin\":[42,538],\"cell\":26,\"columns\":7,\"rows\":7,\"kind\":\"occupancy\"}]}",
+  "parent": "extreme-repair-eight-terminal-fabric-03",
+  "size": { "x": 7, "y": 7, "z": 7 },
+  "initial": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 0, "y": 4, "z": 2 },
+    { "x": 2, "y": 2, "z": 2 },
+    { "x": 2, "y": 2, "z": 4 },
+    { "x": 4, "y": 0, "z": 4 },
+    { "x": 4, "y": 2, "z": 0 },
+    { "x": 4, "y": 4, "z": 2 },
+    { "x": 6, "y": 4, "z": 0 }
+  ],
+  "constraints": { "only": "add", "maxEdits": 24 },
+  "reference": {
+    "status": "impossible",
+    "reason": "The exact terminal-subset Steiner lower bound is 25 additions, exceeding the budget."
+  },
+  "images": ["eight-terminal-fabric-03-corridors.png"]
+}
